@@ -1,5 +1,7 @@
 package de.fosd.typechef.cifdeftoif
 
+import java.util
+
 import de.fosd.typechef.conditional.{Conditional, One, Opt}
 import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory}
 import de.fosd.typechef.parser.c._
@@ -53,6 +55,10 @@ trait IfdefToIfPerformanceInterface {
     def correctPerformanceFeaturePrefix(newPrefix: String) = {
         // Nothing
     }
+
+    def setIgnoredBlocks(blocks: Map[FeatureExpr, List[Int]]) = {
+        // Nothing
+    }
 }
 
 trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilities {
@@ -73,6 +79,27 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
     private var featurePrefix2 = "f_"
     private var performanceCounter = 0
     private var insertPerformanceCounter = true
+    private var currentBlockCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
+    private var ignoredBlocks: Map[FeatureExpr, List[Int]] = Map.empty[FeatureExpr, List[Int]]
+
+    override def setIgnoredBlocks(blocks: Map[FeatureExpr, List[Int]]): Unit = {
+        ignoredBlocks = blocks
+    }
+
+    private def checkIfBlockValid(context: FeatureExpr): Boolean = {
+        var counter = 0
+
+        if (currentBlockCounter.contains(context)) {
+            counter = currentBlockCounter(context)
+            currentBlockCounter -= context
+            currentBlockCounter += (context -> (counter+1))
+        } else {
+            currentBlockCounter += (context -> 0)
+        }
+
+        !(ignoredBlocks.contains(context) && ignoredBlocks(context).contains(counter))
+
+    }
 
     override def correctPerformanceFeaturePrefix(newPrefix: String): Unit = {
         featurePrefix2 = newPrefix
@@ -238,6 +265,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
             // Don't insert anything
             return cmpstmt
         }
+
         var result: CompoundStatement = cmpstmt
         val numberOfStatements = getNumberOfStatements(cmpstmt)
         var functionName = functionBeforeName
@@ -251,11 +279,13 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         def alterStatementHelper[T <: Product](t: T, continueExitsContext: Boolean = true): T = {
             val transformation = alltd(rule[Product] {
                 case i@IfStatement(cond, One(CompoundStatement(List(Opt(ft, ContinueStatement())))), List(), None) =>
-                    if (continueExitsContext) {
+                    IfStatement(cond, One(CompoundStatement(List(Opt(trueF3, afterStmt), Opt(ft, ContinueStatement())))), List(), None)
+
+                    /*if (continueExitsContext && checkIfBlockValid(context)) {
                         IfStatement(cond, One(CompoundStatement(List(Opt(trueF3, afterStmt), Opt(ft, ContinueStatement())))), List(), None)
                     } else {
                         i
-                    }
+                    }*/
                 case Opt(ft, s: ForStatement) =>
                     Opt(ft, alterStatementHelper(s, false))
                 case Opt(ft, s: DoStatement) =>
@@ -266,8 +296,20 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                     CompoundStatement(innerStmts.flatMap {
                         case Opt(ft, ReturnStatement(None)) =>
                             List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
+
+/*                            if (checkIfBlockValid(context)) {
+                                List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
+                            } else {
+                                List(Opt(ft, ReturnStatement(None)))
+                            }*/
                         case Opt(ft, ReturnStatement(Some(expr))) =>
                             List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
+
+                            /*if (checkIfBlockValid(context)) {
+                                List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
+                            } else {
+                                List(Opt(ft, ReturnStatement(Some(expr))))
+                            }*/
                         case k =>
                             List(alterStatementHelper(k, continueExitsContext))
                     })
@@ -277,23 +319,49 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         val r = manytd(rule[Statement] {
             case i@IfStatement(cond, One(CompoundStatement(List(Opt(ft, ContinueStatement())))), List(), None) =>
                 IfStatement(cond, One(CompoundStatement(List(Opt(trueF3, afterStmt), Opt(ft, ContinueStatement())))), List(), None)
+
+/*                if (checkIfBlockValid(context)) {
+                    IfStatement(cond, One(CompoundStatement(List(Opt(trueF3, afterStmt), Opt(ft, ContinueStatement())))), List(), None)
+                } else {
+                    i
+                }*/
             case CompoundStatement(innerStmts) =>
                 CompoundStatement(innerStmts.flatMap {
                     case Opt(ft, ReturnStatement(None)) =>
                         List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
+
+                        /*if (checkIfBlockValid(context)) {
+                            List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
+                        } else {
+                            List(Opt(ft, ReturnStatement(None)))
+                        }*/
                     case Opt(ft, ReturnStatement(Some(expr))) =>
                         List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
+
+                        /*if (checkIfBlockValid(context)) {
+                            List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
+                        } else {
+                            List(Opt(ft, ReturnStatement(Some(expr))))
+                        }*/
                     case k =>
                         List(k)
                 })
         })
         if (last.entry.isInstanceOf[ReturnStatement]) {
-            result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement].innerStatements)
+            if (checkIfBlockValid(context)) {
+                result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement].innerStatements)
+            } else {
+                result = cmpstmt
+            }
         } else {
             //val newCompound = r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement]
             //val newCompound = alterStatementHelper(cmpstmt)
             val newCompound = cmpstmt
-            result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ newCompound.innerStatements ++ List(Opt(trueF3, afterStmt)))
+            if (checkIfBlockValid(context)) {
+                result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ newCompound.innerStatements ++ List(Opt(trueF3, afterStmt)))
+            } else {
+                result = newCompound
+            }
         }
         return result
         /*if (last.entry.isInstanceOf[ReturnStatement]) {

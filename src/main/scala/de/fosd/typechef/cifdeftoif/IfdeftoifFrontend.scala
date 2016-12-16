@@ -1,6 +1,5 @@
 package de.fosd.typechef.cifdeftoif
 
-
 import java.io._
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
@@ -167,6 +166,15 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                             }
                             i.setSimpleSwitchTransformation(opt.simple_switch_transformation)
                             i.setPerformance(opt.performance)
+
+                            if (opt.performance && opt.granualExecCode) {
+                                println("calculation for granularity by executed code lines started")
+
+                                val granularity = new IfdefToIfGranularity with IfdefToIfGranularityExecCode
+
+                                i.setIgnoredBlocks(granularity.calculateGranularity(ast, fullFM))
+                            }
+
                             stopWatch.start("ifdeftoif")
                             println("ifdeftoif started")
                             i.setParseFM(parseFM)
@@ -231,6 +239,27 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                     }
                     ts.errors.map(errorXML.renderTypeError(_))
                 }
+            }
+
+            if (opt.blockCoverage) {
+                println("block coverage started")
+
+                val blockCoverage = new IfdefToIfBlockCoverage()
+                blockCoverage.blockCoverage(ast, fullFM, opt.getBCFilename)
+
+            }
+
+            if (opt.blockCoverageTest) {
+                println("block coverage test started")
+
+                val blockCoverage = new IfdefToIfBlockCoverage()
+                blockCoverage.blockCoverageTest(ast, fullFM, opt.getBCFilename)
+
+            }
+
+            if (opt.granualExecCode) {
+                val granularity = new IfdefToIfGranularity with IfdefToIfGranularityExecCode
+                granularity.calculateGranularity(ast, fullFM)
             }
         }
         stopWatch.start("done")

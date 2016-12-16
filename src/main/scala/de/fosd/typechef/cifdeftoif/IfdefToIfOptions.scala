@@ -3,13 +3,16 @@ package de.fosd.typechef.cifdeftoif
 import java.util
 
 import de.fosd.typechef.options.Options.OptionGroup
-import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, Options}
+import de.fosd.typechef.options.{FrontendOptionsWithConfigFiles, OptionException, Options}
 import gnu.getopt.{Getopt, LongOpt}
 
 class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
     private final val F_IFDEFTOIF: Char = Options.genOptionId
     private final val F_IFDEFTOIFSTATISTICS: Char = Options.genOptionId
     private final val F_IFDEFTOIFNOCHECK: Char = Options.genOptionId
+    private final val F_BLOCKCOVERAGE: Char = Options.genOptionId()
+    private final val F_BLOCKCOVERAGETEST: Char = Options.genOptionId()
+    private final val F_GRANULAREXECCODE: Char = Options.genOptionId()
     private final val F_SIMPLE_SWITCH_TRANSFORMATION: Char = Options.genOptionId
     private final val F_FEATURECONFIG: Char = Options.genOptionId
     private final val F_DECLUSE: Char = Options.genOptionId
@@ -20,16 +23,23 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
     var performance: Boolean = false
     var ifdeftoifstatistics: Boolean = false
     var ifdeftoifnocheck: Boolean = false
+    var blockCoverage: Boolean = false
+    var blockCoverageTest: Boolean = false
+    var granualExecCode: Boolean = false
     var simple_switch_transformation: Boolean = false
     var externoptions: Boolean = true
     var featureConfig: Boolean = false
 
     private var featureConfigFile: String = ""
     private var md: String = ""
+    private var bcPath: String = ""
+    private var gt: Integer = null
 
     def getFeatureConfigFilename: String = featureConfigFile
 
     def getMDoption: String = md
+
+    def getBCFilename: String = bcPath
 
     protected override def getOptionGroups() = {
         val groups = new util.ArrayList[OptionGroup](super.getOptionGroups())
@@ -50,6 +60,12 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
                     "Test the declaration use map."),
                 new Options.Option("performance", LongOpt.NO_ARGUMENT, F_PERFORMANCE, null,
                     "Adds functions and function calls into the code for performance measurements of features."),
+                new Options.Option("blockcoverage", LongOpt.OPTIONAL_ARGUMENT, F_BLOCKCOVERAGE, "file",
+                    "Calculate all configurations for block coverage."),
+                new Options.Option("blockcoveragetest", LongOpt.REQUIRED_ARGUMENT, F_BLOCKCOVERAGETEST, "file",
+                    "Calculate all configurations for block coverage."),
+                new Options.Option("granularexeccode", LongOpt.OPTIONAL_ARGUMENT, F_GRANULAREXECCODE, "file",
+                    "Calculates the lines of code of each code block."),
                 new Options.Option("externoptions", LongOpt.NO_ARGUMENT, F_EXTERNOPTIONS, null,
                     "Ifdeftoif transformation feature variables are exported into an external optionstruct.h file instead of adding them to the beginning of the transformed file."),
                 new Options.Option("MD", LongOpt.REQUIRED_ARGUMENT, F_MD, "file",
@@ -90,6 +106,45 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
             // disabled typechecking ifeftoif result because of macro insertions and including <stdio.h> which can't be parsed by TypeChef
             ifdeftoifnocheck = true
             performance = true
+        } else if (c == F_BLOCKCOVERAGE) {
+            bcPath = g.getOptarg
+
+            if (bcPath == null) {
+                bcPath = "bcConfigs"
+            }
+
+            parse = true
+            typecheck = true
+            ifdeftoif = true
+            ifdeftoifnocheck = true
+            blockCoverage = true
+        } else if (c == F_BLOCKCOVERAGETEST) {
+            checkFileExists(g.getOptarg)
+            bcPath = g.getOptarg
+            parse = true
+            typecheck = true
+            ifdeftoif = true
+            ifdeftoifnocheck = true
+            blockCoverageTest = true
+        } else if (c == F_GRANULAREXECCODE) {
+            val input = g.getOptarg
+
+            if (input == null) {
+                gt = 1
+            } else {
+                try {
+                    gt = input.toInt
+                } catch {
+                    case e: Exception => throw new OptionException("Cannot transform " + input + " into number")
+                }
+            }
+
+            parse = true
+            typecheck = true
+            ifdeftoif = true
+            ifdeftoifnocheck = true
+            performance = true
+            granualExecCode = true
         } else if (c == F_EXTERNOPTIONS) {
             parse = true
             typecheck = true
