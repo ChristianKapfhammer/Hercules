@@ -60,11 +60,11 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
                     "Test the declaration use map."),
                 new Options.Option("performance", LongOpt.NO_ARGUMENT, F_PERFORMANCE, null,
                     "Adds functions and function calls into the code for performance measurements of features."),
-                new Options.Option("blockcoverage", LongOpt.OPTIONAL_ARGUMENT, F_BLOCKCOVERAGE, "file",
+                new Options.Option("blockcoverage", LongOpt.NO_ARGUMENT, F_BLOCKCOVERAGE, null,
                     "Calculate all configurations for block coverage."),
                 new Options.Option("blockcoveragetest", LongOpt.REQUIRED_ARGUMENT, F_BLOCKCOVERAGETEST, "file",
                     "Calculate all configurations for block coverage."),
-                new Options.Option("granularexeccode", LongOpt.OPTIONAL_ARGUMENT, F_GRANULAREXECCODE, "file",
+                new Options.Option("granularexeccode", LongOpt.REQUIRED_ARGUMENT, F_GRANULAREXECCODE, "threshold",
                     "Calculates the lines of code of each code block."),
                 new Options.Option("externoptions", LongOpt.NO_ARGUMENT, F_EXTERNOPTIONS, null,
                     "Ifdeftoif transformation feature variables are exported into an external optionstruct.h file instead of adding them to the beginning of the transformed file."),
@@ -103,16 +103,11 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
             parse = true
             typecheck = true
             ifdeftoif = true
-            // disabled typechecking ifeftoif result because of macro insertions and including <stdio.h> which can't be parsed by TypeChef
+            // disabled typechecking ifdeftoif result because of macro insertions and including <stdio.h> which can't be parsed by TypeChef
             ifdeftoifnocheck = true
             performance = true
         } else if (c == F_BLOCKCOVERAGE) {
-            bcPath = g.getOptarg
-
-            if (bcPath == null) {
-                bcPath = "bcConfigs"
-            }
-
+            bcPath = "bcConfigs"
             parse = true
             typecheck = true
             ifdeftoif = true
@@ -127,16 +122,10 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
             ifdeftoifnocheck = true
             blockCoverageTest = true
         } else if (c == F_GRANULAREXECCODE) {
-            val input = g.getOptarg
-
-            if (input == null) {
-                gt = 1
-            } else {
-                try {
-                    gt = input.toInt
-                } catch {
-                    case e: Exception => throw new OptionException("Cannot transform " + input + " into number")
-                }
+            try {
+                gt = g.getOptarg.toInt
+            } catch {
+                case e: Exception => throw new OptionException("Cannot transform " + g.getOptarg + " into number")
             }
 
             parse = true
