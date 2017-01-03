@@ -60,7 +60,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
                     "Test the declaration use map."),
                 new Options.Option("performance", LongOpt.NO_ARGUMENT, F_PERFORMANCE, null,
                     "Adds functions and function calls into the code for performance measurements of features."),
-                new Options.Option("blockcoverage", LongOpt.NO_ARGUMENT, F_BLOCKCOVERAGE, null,
+                new Options.Option("blockcoverage", LongOpt.REQUIRED_ARGUMENT, F_BLOCKCOVERAGE, null,
                     "Calculate all configurations for block coverage."),
                 new Options.Option("blockcoveragetest", LongOpt.REQUIRED_ARGUMENT, F_BLOCKCOVERAGETEST, "file",
                     "Calculate all configurations for block coverage."),
@@ -107,7 +107,10 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
             ifdeftoifnocheck = true
             performance = true
         } else if (c == F_BLOCKCOVERAGE) {
-            bcPath = "bcConfigs"
+            if (!g.getOptarg.endsWith("/")) {
+                bcPath = g.getOptarg + "/"
+            }
+            bcPath += "bcConfigs"
             parse = true
             typecheck = true
             ifdeftoif = true
