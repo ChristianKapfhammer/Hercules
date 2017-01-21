@@ -22,11 +22,20 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
 
     override def blockCoverage(ast: TranslationUnit, fm: FeatureModel, dirname: String): Unit = {
 
+        println("--------------------------------------------------")
+        println("Started calculating")
+        println("AST:")
+        println(ast)
+
         featureModel = fm
 
         var finalConfs: List[FeatureExpr] = List.empty[FeatureExpr]
 
+        println("--------------------------------------------------")
+        println("Calculating configurations:")
+
         coverageCases(ast).foreach(exp => {
+            println(exp)
             if(exp.isSatisfiable(fm)) {
                 exp.getSatisfiableAssignment(fm, exp.collectDistinctFeatureObjects, true) match {
                     case Some(x) =>
@@ -38,6 +47,7 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
 
         finalConfs = finalConfs.map(completeConfiguration)
 
+        println("--------------------------------------------------")
         println("Calculated " + finalConfs.size + " configurations")
 
         val directory = new File(dirname)
@@ -252,6 +262,8 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
 
     private def coverageCases(obj: Any): List[FeatureExpr] = {
         var newConfigurations: List[FeatureExpr] = List.empty[FeatureExpr]
+
+        println(obj)
 
         obj match {
             case x: AST =>
