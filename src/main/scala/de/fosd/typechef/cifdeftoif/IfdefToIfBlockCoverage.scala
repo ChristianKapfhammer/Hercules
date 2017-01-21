@@ -263,8 +263,6 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
     private def coverageCases(obj: Any): List[FeatureExpr] = {
         var newConfigurations: List[FeatureExpr] = List.empty[FeatureExpr]
 
-        println(obj)
-
         obj match {
             case x: AST =>
                 if (x.productArity > 0) {
@@ -329,12 +327,22 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
         var mergedConfigurations: List[FeatureExpr] = List.empty[FeatureExpr]
 
         if (origin == Nil || origin.isEmpty) {
+            println("Merging:")
+            println("--> origin: " + origin)
+            println("--> extension: " + extension)
             return extension
         }
 
         if (extension == Nil || extension.isEmpty) {
+            println("Merging:")
+            println("--> origin: " + origin)
+            println("--> extension: " + extension)
             return origin
         }
+
+        println("Merging:")
+        println("--> origin: " + origin)
+        println("--> extension: " + extension)
 
         origin.foreach(oriConf => {
             unusedConfigurations += oriConf
