@@ -223,6 +223,7 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
 
         if (o.condition != FeatureExprFactory.False) {
             if (o.condition != FeatureExprFactory.True) {
+                println(o.condition)
                 configurations = List(o.condition)
             }
 
@@ -327,22 +328,12 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
         var mergedConfigurations: List[FeatureExpr] = List.empty[FeatureExpr]
 
         if (origin == Nil || origin.isEmpty) {
-            println("Merging:")
-            println("--> origin: " + origin)
-            println("--> extension: " + extension)
             return extension
         }
 
         if (extension == Nil || extension.isEmpty) {
-            println("Merging:")
-            println("--> origin: " + origin)
-            println("--> extension: " + extension)
             return origin
         }
-
-        println("Merging:")
-        println("--> origin: " + origin)
-        println("--> extension: " + extension)
 
         origin.foreach(oriConf => {
             unusedConfigurations += oriConf
