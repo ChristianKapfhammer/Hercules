@@ -6,13 +6,14 @@ import de.fosd.typechef.conditional.{Choice, Conditional, One, Opt}
 import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory, FeatureModel}
 import de.fosd.typechef.featureexpr.bdd.BDDFeatureModel
 import de.fosd.typechef.featureexpr.sat.SATFeatureModel
-import de.fosd.typechef.parser.c.{AST, TranslationUnit}
+import de.fosd.typechef.parser.c.{AST, ASTEnv, CASTEnv, TranslationUnit}
 
 import scala.io.Source
 
 trait IfdefToIfBlockCoverageInterface {
 
     protected var featureModel: FeatureModel = _
+    protected var env: ASTEnv = _
 
     def blockCoverage(ast: TranslationUnit, fm: FeatureModel, filename: String): Unit
     def blockCoverageTest(ast: TranslationUnit, fm: FeatureModel, filename: String): Unit
@@ -24,10 +25,9 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
 
         println("--------------------------------------------------")
         println("Started calculating")
-        println("AST:")
-        println(ast)
 
         featureModel = fm
+        env = CASTEnv.createASTEnv(ast)
 
         var finalConfs: List[FeatureExpr] = List.empty[FeatureExpr]
 
@@ -218,12 +218,11 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
         else fm.asInstanceOf[SATFeatureModel].variables
 
     private def generateConfiguration(o: Opt[_]): List[FeatureExpr] = {
-
         var configurations: List[FeatureExpr] = List.empty[FeatureExpr]
 
         if (o.condition != FeatureExprFactory.False) {
             if (o.condition != FeatureExprFactory.True) {
-                println(o.condition)
+                println(env.featureExpr(o))
                 configurations = List(o.condition)
             }
 
