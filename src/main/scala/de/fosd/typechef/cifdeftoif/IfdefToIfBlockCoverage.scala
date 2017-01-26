@@ -22,18 +22,10 @@ trait IfdefToIfBlockCoverageInterface {
 class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtilities {
 
     override def blockCoverage(ast: TranslationUnit, fm: FeatureModel, dirname: String): Unit = {
-
-        println("--------------------------------------------------")
-        println("Started calculating")
-        println(ast)
-
         featureModel = fm
         env = CASTEnv.createASTEnv(ast)
 
         var finalConfs: List[FeatureExpr] = List.empty[FeatureExpr]
-
-        println("--------------------------------------------------")
-        println("Calculating configurations:")
 
         coverageCases(ast).foreach(exp => {
             println(exp)
@@ -48,7 +40,6 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
 
         finalConfs = finalConfs.map(completeConfiguration)
 
-        println("--------------------------------------------------")
         println("Calculated " + finalConfs.size + " configurations")
 
         val directory = new File(dirname)
@@ -155,9 +146,6 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
                     string = string + "#define " + features(i).toString + "\n"
                 }
             }
-
-            // Write beginning and end of file
-            string = "#ifndef POLARSSL_CONFIG_H\n#define POLARSSL_CONFIG_H\n\n" + string + "#endif"
 
             pw.write(string)
             pw.close()
