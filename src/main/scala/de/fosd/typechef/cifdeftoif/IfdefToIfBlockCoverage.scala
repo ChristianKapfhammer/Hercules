@@ -25,6 +25,7 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
 
         println("--------------------------------------------------")
         println("Started calculating")
+        println(ast)
 
         featureModel = fm
         env = CASTEnv.createASTEnv(ast)
