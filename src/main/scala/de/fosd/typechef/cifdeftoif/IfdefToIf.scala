@@ -818,7 +818,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
             addToFile(externalDeclPath, externalDeclHeader + externalDeclMsgs + "\n")
         }
 
-        printPerformanceCounter(outputStem)
+        //printPerformanceCounter(outputStem)
         if (!typecheckResult) {
             println("Skipping typecheck of ifdeftoif result")
             (Some(result_ast), transformTime, List())

@@ -193,23 +193,17 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
 
     override def printPerformanceCounter(path: String) = {
         var resultString = ""
-        println("Checkpoint 1")
         if (insertPerformanceCounter) {
-            println("Checkpoint 2")
-            println(performanceCounter.toString())
             //println("Number of performance measuring nodes: " + performanceCounter)
             resultString += "Number of performance measuring nodes: " + performanceCounter.toString() + "\n"
             var currentIndex = 0
-            println("Checkpoint 3")
             performanceCmpStmtContextMap.foreach(x => {
                 //println("Node " + currentIndex.toString + ":\t" + x._2 + " -> " + x._1)
                 resultString += "Node " + currentIndex.toString + ":\t" + x._2 + " -> " + x._1 + "\n"
                 currentIndex += 1
             })
-            println("Checkpoint 4")
         }
         writeToFile(path ++ "_nodes.txt", resultString)
-        println("Checkpoint 5")
     }
 
     override def insertPerformanceCounter(suffix: PostfixSuffix): PostfixSuffix = {
