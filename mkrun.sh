@@ -2,4 +2,4 @@
 
 cd "$(dirname "$0")"
 
-java -Xmx65536M -Xss20M -jar sbt-launch.jar compile copy-resources mkrun
+java -Xmx4096M -Xss40M -jar sbt-launch.jar compile copy-resources mkrun

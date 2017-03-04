@@ -813,12 +813,18 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
         PrettyPrinter.printD(result_ast, ifdeftoif_file, prependString)
         println("Printed ifdeftoif to file " + ifdeftoif_file)
 
+        println("Checkpoint 1")
+
         if (!externalDeclMsgs.equals("")) {
+            println("Checkpoint 2")
             val externalDeclHeader = "-+ Multiple external declarations with the same name in " + fileNameWithExt + " +-\n"
+            println("Checkpoint 3")
             addToFile(externalDeclPath, externalDeclHeader + externalDeclMsgs + "\n")
         }
+        println("Checkpoint 4")
 
         printPerformanceCounter(outputStem)
+        println("Checkpoint 5")
         if (!typecheckResult) {
             println("Skipping typecheck of ifdeftoif result")
             (Some(result_ast), transformTime, List())
