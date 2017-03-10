@@ -87,27 +87,31 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
             case x: Opt[_] =>
-                updateBlockMapping(x.condition)
+                if (currentFunction != null) {
+                    updateBlockMapping(x.condition)
 
-                if (x.condition != FeatureExprFactory.True) {
-                    val block = currentBlockMapping(x.condition)
+                    if (x.condition != FeatureExprFactory.True) {
+                        val block = currentBlockMapping(x.condition)
 
-                    if (functionBlocks.contains(currentFunction)) {
-                        if (!functionBlocks(currentFunction).contains(block)) {
-                            var funcBlocks = functionBlocks(currentFunction)
+                        if (functionBlocks.contains(currentFunction)) {
+                            if (!functionBlocks(currentFunction).contains(block)) {
+                                var funcBlocks = functionBlocks(currentFunction)
+                                funcBlocks += block
+
+                                functionBlocks -= currentFunction
+                                functionBlocks += (currentFunction -> funcBlocks)
+                            }
+                        } else {
+                            var funcBlocks = Set.empty[String]
                             funcBlocks += block
 
-                            functionBlocks -= currentFunction
                             functionBlocks += (currentFunction -> funcBlocks)
                         }
+
+                        calculateBlockMapping(x.entry, currentBlocks + x.condition, currentFunction)
                     } else {
-                        var funcBlocks = Set.empty[String]
-                        funcBlocks += block
-
-                        functionBlocks += (currentFunction -> funcBlocks)
+                        calculateBlockMapping(x.entry, currentBlocks, currentFunction)
                     }
-
-                    calculateBlockMapping(x.entry, currentBlocks + x.condition, currentFunction)
                 } else {
                     calculateBlockMapping(x.entry, currentBlocks, currentFunction)
                 }
@@ -200,7 +204,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 featureCounter += (currentExpr -> (ftCounter + 1))
 
                 if (blockNumbering.contains(currBlock)) {
-                    var list = blockNumbering(currBlock)
+                    val list = blockNumbering(currBlock)
 
                     blockNumbering -= currBlock
                     blockNumbering += (currBlock -> (list ::: List(ftCounter)))
@@ -304,7 +308,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private def increaseCounters(currentBlocks: Set[FeatureExpr], currentFunction: String, weight: Int): Unit = {
         // Update loc of blocks
         for (key <- currentBlocks) {
-            if (key != FeatureExprFactory.True) {
+            if (key != FeatureExprFactory.True && currentFunction != null) {
                 val block = exprToBlock.get(key)
 
                 if (blockLoC.contains(block)) {
