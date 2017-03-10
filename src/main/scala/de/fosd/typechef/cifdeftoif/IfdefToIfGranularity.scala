@@ -77,7 +77,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 obj match {
                     case funcDef: FunctionDef =>
-                        function =  funcDef.getName
+                        function = funcDef.getName
                     case o =>
                 }
 
@@ -112,8 +112,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     } else {
                         calculateBlockMapping(x.entry, currentBlocks, currentFunction)
                     }
-                } else {
-                    calculateBlockMapping(x.entry, currentBlocks, currentFunction)
                 }
             case One(x) =>
                 calculateBlockMapping(x, currentBlocks, currentFunction)
