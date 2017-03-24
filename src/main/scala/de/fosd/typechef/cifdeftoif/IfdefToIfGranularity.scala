@@ -41,7 +41,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var blockNumbering: Map[String, List[Int]] = Map.empty[String, List[Int]]
     private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
 
-    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 0): Map[FeatureExpr, List[Int]] = {
+    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 2): Map[FeatureExpr, List[Int]] = {
         var ignoredBlocks: Map[FeatureExpr, List[Int]] = Map.empty[FeatureExpr, List[Int]]
 
         featureModel = fm
@@ -49,15 +49,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         // Order is important, blockMapping -> loopScores -> generalGranularity -> blocks -> functions -> function calls
         calculateBlockMapping(ast)
         calculateLoopScores(ast)
-
-        loopExited.clear()
-
         granularity(ast)
         calculateBlockScores()
         calculateFunctionScores()
         careFunctionCalls()
 
         blockScores.foreach(block => {
+            println(block)
             if (block._2 < threshold) {
                 val ft = blockToExprs(block._1).keySet().toArray()(0).asInstanceOf[FeatureExpr]
 
@@ -95,7 +93,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
             case x: Opt[_] =>
-                if (currentFunction != null) {
+                if (currentFunction != null || x.condition == FeatureExprFactory.True) {
                     updateBlockMapping(x.condition)
 
                     if (x.condition != FeatureExprFactory.True) {
