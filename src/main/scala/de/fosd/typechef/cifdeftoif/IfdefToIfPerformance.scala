@@ -94,7 +94,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
             currentBlockCounter -= context
             currentBlockCounter += (context -> (counter+1))
         } else {
-            currentBlockCounter += (context -> 0)
+            currentBlockCounter += (context -> 1)
         }
 
         !(ignoredBlocks.contains(context) && ignoredBlocks(context).contains(counter))
