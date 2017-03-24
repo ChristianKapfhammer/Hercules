@@ -18,7 +18,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
     class FuncCall(var functionName: String, var condition: FeatureExpr, var weight: Double) {}
 
-    private val DEFAULT_FUNCTION_WEIGHT = 5.0
+    private val DEFAULT_FUNCTION_WEIGHT = 1.0
 
     private val FOR_WEIGHT: Double = 3.0
     private val WHILE_WEIGHT: Double = 3.0
@@ -55,7 +55,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         careFunctionCalls()
 
         blockScores.foreach(block => {
-            println(block)
             if (block._2 < threshold) {
                 val ft = blockToExprs(block._1).keySet().toArray()(0).asInstanceOf[FeatureExpr]
 
@@ -94,29 +93,40 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             case x: Opt[_] =>
                 if (currentFunction != null || x.condition == FeatureExprFactory.True) {
-                    updateBlockMapping(x.condition)
 
-                    if (x.condition != FeatureExprFactory.True) {
-                        val block = currentBlockMapping(x.condition)
+                    // There are no measurement functions for DeclarationStatements in general. We have to filter them
+                    // to look at only the important blocks
+                    x.entry match {
+                        case _: FunctionCall | _: ArrayAccess | _: SizeOfExprT | _: SizeOfExprU
+                             | _: CastExpr | _: PointerDerefExpr | _: PointerCreationExpr | _: UnaryOpExpr | _: NAryExpr
+                             | _: ConditionalExpr | _: AssignExpr | _: ExprStatement | _: ReturnStatement
+                             | _: GotoStatement | _: ContinueStatement | _: BreakStatement =>
+                            updateBlockMapping(x.condition)
 
-                        if (functionBlocks.contains(currentFunction)) {
-                            if (!functionBlocks(currentFunction).contains(block)) {
-                                var funcBlocks = functionBlocks(currentFunction)
-                                funcBlocks += block
+                            if (x.condition != FeatureExprFactory.True) {
+                                val block = currentBlockMapping(x.condition)
 
-                                functionBlocks -= currentFunction
-                                functionBlocks += (currentFunction -> funcBlocks)
+                                if (functionBlocks.contains(currentFunction)) {
+                                    if (!functionBlocks(currentFunction).contains(block)) {
+                                        var funcBlocks = functionBlocks(currentFunction)
+                                        funcBlocks += block
+
+                                        functionBlocks -= currentFunction
+                                        functionBlocks += (currentFunction -> funcBlocks)
+                                    }
+                                } else {
+                                    var funcBlocks = Set.empty[String]
+                                    funcBlocks += block
+
+                                    functionBlocks += (currentFunction -> funcBlocks)
+                                }
+
+                                calculateBlockMapping(x.entry, currentBlocks + x.condition, currentFunction)
+                            } else {
+                                calculateBlockMapping(x.entry, currentBlocks, currentFunction)
                             }
-                        } else {
-                            var funcBlocks = Set.empty[String]
-                            funcBlocks += block
-
-                            functionBlocks += (currentFunction -> funcBlocks)
-                        }
-
-                        calculateBlockMapping(x.entry, currentBlocks + x.condition, currentFunction)
-                    } else {
-                        calculateBlockMapping(x.entry, currentBlocks, currentFunction)
+                        case o =>
+                            calculateBlockMapping(x.entry, currentBlocks, currentFunction)
                     }
                 }
             case One(x) =>
@@ -379,7 +389,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private def increaseScore(currentBlocks: Set[FeatureExpr], currentFunction: String, weight: Double): Unit = {
         // Update loc of blocks
         for (key <- currentBlocks) {
-            if (key != FeatureExprFactory.True && currentFunction != null) {
+            if (key != FeatureExprFactory.True && exprToBlock.containsKey(key) && currentFunction != null) {
                 val block = exprToBlock.get(key)
 
                 if (blockScores.contains(block)) {
