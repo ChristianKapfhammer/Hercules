@@ -16,40 +16,48 @@ trait IfdefToIfGranularityInterface {
 
 trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IOUtilities {
 
-    class FuncCall(var functionName: String, var condition: FeatureExpr, var weight: Int) {}
+    class FuncCall(var functionName: String, var condition: FeatureExpr, var weight: Double) {}
 
-    private val DEFAULT_FUNCTION_WEIGHT = 5
+    private val DEFAULT_FUNCTION_WEIGHT = 5.0
 
-    private val FOR_WEIGHT = 1
-    private val WHILE_WEIGHT = 1
-    private val DO_WEIGHT = 1
-    private val RECURSIVE_WEIGHT = 1
+    private val FOR_WEIGHT: Double = 3.0
+    private val WHILE_WEIGHT: Double = 3.0
+    private val DO_WEIGHT: Double = 3.0
+    private val BREAK_WEIGHT: Double = 0.4
+    private val CONTINUE_WEIGHT: Double = 0.8
+    private val GOTO_WEIGHT: Double = 0.2
+    private val RECURSIVE_WEIGHT: Double = 3.0
 
+    private val loopScores: IdentityHashMap[Any, Double] = new IdentityHashMap[Any, Double]()
     private var functionDefs: Set[String] = Set.empty[String]
-    private var functionLoC: Map[String, Int] = Map.empty[String, Int]
+    private var functionScores: Map[String, Double] = Map.empty[String, Double]
     private var functionBlocks: Map[String, Set[String]] = Map.empty[String, Set[String]]
     // in which function is the call? -> (what function is called?, which condition?, which weight?)
     private var globalFunctionCalls: Map[String, List[FuncCall]] = Map.empty[String, List[FuncCall]]
     private val exprToBlock: IdentityHashMap[FeatureExpr, String] = new IdentityHashMap[FeatureExpr, String]()
     private var blockToExprs: Map[String, IdentityHashMap[FeatureExpr, FeatureExpr]] = Map.empty[String, IdentityHashMap[FeatureExpr, FeatureExpr]]
     private var blockCapsuling: Map[String, Set[String]] = Map.empty[String, Set[String]]
-    private var blockLoC: Map[String, Int] = Map.empty[String, Int]
+    private var blockScores: Map[String, Double] = Map.empty[String, Double]
     private var blockNumbering: Map[String, List[Int]] = Map.empty[String, List[Int]]
     private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
 
-    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 2): Map[FeatureExpr, List[Int]] = {
+    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 0): Map[FeatureExpr, List[Int]] = {
         var ignoredBlocks: Map[FeatureExpr, List[Int]] = Map.empty[FeatureExpr, List[Int]]
 
         featureModel = fm
 
-        // Order is important, blockMapping -> generalGranularity -> blocks -> functions -> function calls
+        // Order is important, blockMapping -> loopScores -> generalGranularity -> blocks -> functions -> function calls
         calculateBlockMapping(ast)
+        calculateLoopScores(ast)
+
+        loopExited.clear()
+
         granularity(ast)
-        calculateBlockLoCs()
-        calculateFunctionLoCs()
+        calculateBlockScores()
+        calculateFunctionScores()
         careFunctionCalls()
 
-        blockLoC.foreach(block => {
+        blockScores.foreach(block => {
             if (block._2 < threshold) {
                 val ft = blockToExprs(block._1).keySet().toArray()(0).asInstanceOf[FeatureExpr]
 
@@ -227,24 +235,91 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    private def granularity(obj: Any, currentBlocks: Set[FeatureExpr] = Set.empty[FeatureExpr], currentFunction: String = null, weight: Int = 1): Unit = {
+    // Global for current status of loops for loop score calculation and granularity
+    private val loopExited: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]()
+
+    private def calculateLoopScores(obj: Any, currentLoopSet: Set[Any] = Set.empty[Any], currentLoop: Any = null): Unit = {
+        obj match {
+            case x: ForStatement =>
+                loopScores.put(x, FOR_WEIGHT)
+                loopExited.put(x, false)
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        if (!loopExited.get(x)) {
+                            calculateLoopScores(y, currentLoopSet + x, x)
+                        }
+                    }
+                }
+            case x: WhileStatement =>
+                loopScores.put(x, WHILE_WEIGHT)
+                loopExited.put(x, false)
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        if (!loopExited.get(x)) {
+                            calculateLoopScores(y, currentLoopSet + x, x)
+                        }
+                    }
+                }
+            case x: DoStatement =>
+                loopScores.put(x, DO_WEIGHT)
+                loopExited.put(x, false)
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        if (!loopExited.get(x)) {
+                            calculateLoopScores(y, currentLoopSet + x, x)
+                        }
+                    }
+                }
+            case x: BreakStatement =>
+                loopScores.replace(currentLoop, loopScores.get(currentLoop) * BREAK_WEIGHT)
+                loopExited.replace(currentLoop, true)
+            case x: ContinueStatement =>
+                loopScores.replace(currentLoop, loopScores.get(currentLoop) * CONTINUE_WEIGHT)
+                loopExited.replace(currentLoop, true)
+            case x: GotoStatement =>
+                for (y <- currentLoopSet) {
+                    loopScores.replace(y, loopScores.get(y) * GOTO_WEIGHT)
+                    loopExited.replace(y, true)
+                }
+            case x: Opt[_] =>
+                calculateLoopScores(x.entry, currentLoopSet, currentLoop)
+            case One(x) =>
+                calculateLoopScores(x, currentLoopSet, currentLoop)
+            case x: Choice[_] =>
+                calculateLoopScores(x.thenBranch, currentLoopSet, currentLoop)
+                calculateLoopScores(x.elseBranch, currentLoopSet, currentLoop)
+            case x: List[_] =>
+                for (elem <- x) {
+                    calculateLoopScores(elem, currentLoopSet, currentLoop)
+                }
+            case Some(x) =>
+                calculateLoopScores(x, currentLoopSet, currentLoop)
+            case None =>
+            case o =>
+        }
+    }
+
+    private def granularity(obj: Any, currentBlocks: Set[FeatureExpr] = Set.empty[FeatureExpr], currentFunction: String = null, weight: Double = 1.0): Unit = {
         obj match {
             case x: ForStatement =>
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, currentBlocks, currentFunction, FOR_WEIGHT)
+                        granularity(y, currentBlocks, currentFunction, weight * loopScores.get(x))
                     }
                 }
             case x: WhileStatement =>
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, currentBlocks, currentFunction, WHILE_WEIGHT)
+                        granularity(y, currentBlocks, currentFunction, weight * loopScores.get(x))
                     }
                 }
             case x: DoStatement =>
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, currentBlocks, currentFunction, DO_WEIGHT)
+                        granularity(y, currentBlocks, currentFunction, weight * loopScores.get(x))
                     }
                 }
 
@@ -274,9 +349,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         }
                     case _: Declaration | _: FunctionCall | _: ArrayAccess | _: SizeOfExprT | _: SizeOfExprU
                          | _: CastExpr | _: PointerDerefExpr | _: PointerCreationExpr | _: UnaryOpExpr | _: NAryExpr
-                         | _: ConditionalExpr | _: AssignExpr | _: ExprStatement | _: GotoStatement
-                         | _: ContinueStatement | _: BreakStatement | _: ReturnStatement =>
-                        increaseCounters(currentBlocks, currentFunction, weight)
+                         | _: ConditionalExpr | _: AssignExpr | _: ExprStatement | _: ReturnStatement
+                         | _: GotoStatement | _: ContinueStatement | _: BreakStatement =>
+                        increaseScore(currentBlocks, currentFunction, weight)
                     case _ =>
                 }
 
@@ -303,86 +378,84 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    private def increaseCounters(currentBlocks: Set[FeatureExpr], currentFunction: String, weight: Int): Unit = {
+    private def increaseScore(currentBlocks: Set[FeatureExpr], currentFunction: String, weight: Double): Unit = {
         // Update loc of blocks
         for (key <- currentBlocks) {
             if (key != FeatureExprFactory.True && currentFunction != null) {
                 val block = exprToBlock.get(key)
 
-                if (blockLoC.contains(block)) {
-                    val w = blockLoC(block)
+                if (blockScores.contains(block)) {
+                    val w = blockScores(block)
 
-                    blockLoC -= block
-                    blockLoC += (block -> (w + weight))
+                    blockScores -= block
+                    blockScores += (block -> (w + weight))
                 } else {
-                    blockLoC += (block -> weight)
+                    blockScores += (block -> weight)
                 }
             }
         }
 
-        // Update loc of functions (True only)
+        // Update score of functions (True only)
         if (currentFunction != null) {
             if (currentBlocks.size == 1 && currentBlocks.head == FeatureExprFactory.True) {
-                if (functionLoC.contains(currentFunction)) {
-                    val loc = functionLoC(currentFunction)
+                if (functionScores.contains(currentFunction)) {
+                    val score = functionScores(currentFunction)
 
-                    functionLoC -= currentFunction
-                    functionLoC += (currentFunction -> (loc + weight))
+                    functionScores -= currentFunction
+                    functionScores += (currentFunction -> (score + weight))
                 } else {
-                    functionLoC = functionLoC + (currentFunction -> weight)
+                    functionScores = functionScores + (currentFunction -> weight)
                 }
             }
         }
     }
 
-    private def calculateBlockLoCs(): Unit = {
-        var blockLoCChange: Map[String, Int] = Map.empty[String, Int]
+    private def calculateBlockScores(): Unit = {
+        var blockScoreChange: Map[String, Double] = Map.empty[String, Double]
 
-        blockLoC.foreach(block => {
-            var sum = blockLoC(block._1)
-            var count = 1
+        blockScores.foreach(block => {
+            var sum = blockScores(block._1)
 
             if (blockCapsuling.contains(block._1)) {
                 for (subBlock <- blockCapsuling(block._1)) {
-                    sum += blockLoC(subBlock)
-                    count += 1
+                    sum += blockScores(subBlock)
                 }
             }
 
-            blockLoCChange += (block._1 -> sum/count)
+            blockScoreChange += (block._1 -> sum)
         })
 
-        blockLoC = blockLoCChange
+        blockScores = blockScoreChange
     }
 
-    private def calculateFunctionLoCs(): Unit = {
-        for (func <- functionDefs) {
-            var sum = 0
-            var count = 1 // Starting at 1 because of the function's default loc
+    private def calculateFunctionScores(): Unit = {
+        //TODO: Prüfen, ob die Werte richtig berechnet werden
 
-            if (functionLoC.contains(func)) {
-                sum += functionLoC(func)
+        for (func <- functionDefs) {
+            var sum: Double = 0.0
+
+            if (functionScores.contains(func)) {
+                sum += functionScores(func)
             }
 
             if (functionBlocks.contains(func)) {
                 for (block <- functionBlocks(func)) {
-                    sum += blockLoC(block)
-                    count += 1
+                    sum += blockScores(block)
                 }
             }
 
-            if (functionLoC.contains(func)) {
-                functionLoC -= func
+            if (functionScores.contains(func)) {
+                functionScores -= func
             }
 
-            functionLoC += (func -> (sum/count))
+            functionScores += (func -> (sum))
         }
 
-        // Setting weights for functions which are not defined in this AST
+        // Setting scores for functions which are not defined in this AST
         for (calls <- globalFunctionCalls.values) {
             for (c <- calls) {
-                if (!functionLoC.contains(c.functionName)) {
-                    functionLoC += (c.functionName -> DEFAULT_FUNCTION_WEIGHT)
+                if (!functionScores.contains(c.functionName)) {
+                    functionScores += (c.functionName -> DEFAULT_FUNCTION_WEIGHT)
                 }
             }
         }
@@ -445,13 +518,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
 
         // Calculate the general value for each function in a recursion set
-        var recValues: Map[String, List[Int]] = Map.empty[String, List[Int]]
+        var recValues: Map[String, List[Double]] = Map.empty[String, List[Double]]
 
         for (recSet <- functionRecSets) {
-            var value: Int = 0
+            var value: Double = 0
 
             for (func <- recSet) {
-                value += functionLoC(func)
+                value += functionScores(func)
             }
 
             for (func <- recSet) {
@@ -466,10 +539,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
         }
 
-        var recSetValue: Map[String, Int] = Map.empty[String, Int]
+        var recSetValue: Map[String, Double] = Map.empty[String, Double]
 
         for (entry <- recValues) {
-            var value: Int = 0
+            var value: Double = 0
 
             for (v <- entry._2) {
                 value += v
@@ -479,12 +552,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
 
         // Calculate the accumulated costs of a function call
-        def getCallValue(call: FuncCall, cond: FeatureExpr): Int = {
+        def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
             if (recSetValue.contains(call.functionName)) {
                 RECURSIVE_WEIGHT * recSetValue(call.functionName)
             } else {
                 if (call.condition.and(cond).isSatisfiable(featureModel)) {
-                    var sum = functionLoC(call.functionName)
+                    var sum = functionScores(call.functionName)
 
                     if (globalFunctionCalls.contains(call.functionName)) {
                         for (furtherCall <- globalFunctionCalls(call.functionName)) {
@@ -505,13 +578,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 if (call.condition != FeatureExprFactory.True) {
                     val block = exprToBlock.get(call.condition)
 
-                    if (blockLoC.contains(block)) {
-                        val w = blockLoC(block)
+                    if (blockScores.contains(block)) {
+                        val w = blockScores(block)
 
-                        blockLoC -= block
-                        blockLoC += (block -> (w + getCallValue(call, FeatureExprFactory.True)))
+                        blockScores -= block
+                        blockScores += (block -> (w + getCallValue(call, FeatureExprFactory.True)))
                     } else {
-                        blockLoC += (block -> getCallValue(call, FeatureExprFactory.True))
+                        blockScores += (block -> getCallValue(call, FeatureExprFactory.True))
                     }
                 }
             }
