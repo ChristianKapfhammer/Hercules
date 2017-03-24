@@ -41,6 +41,8 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
 
     def getBCFilename: String = bcPath
 
+    def getGToption: Integer = gt
+
     protected override def getOptionGroups() = {
         val groups = new util.ArrayList[OptionGroup](super.getOptionGroups())
 

@@ -188,7 +188,7 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
 
                                 val granularity = new IfdefToIfGranularity with IfdefToIfGranularityExecCode
 
-                                i.setIgnoredBlocks(granularity.calculateGranularity(ast, fullFM))
+                                i.setIgnoredBlocks(granularity.calculateGranularity(ast, fullFM, opt.getGToption))
                             }
 
                             stopWatch.start("ifdeftoif")
