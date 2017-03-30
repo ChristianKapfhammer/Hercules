@@ -355,10 +355,11 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                 }
                             case _ =>
                         }
-                    case _: Declaration | _: FunctionCall | _: ArrayAccess | _: SizeOfExprT | _: SizeOfExprU
+                    /*case _: Declaration | _: FunctionCall | _: ArrayAccess | _: SizeOfExprT | _: SizeOfExprU
                          | _: CastExpr | _: PointerDerefExpr | _: PointerCreationExpr | _: UnaryOpExpr | _: NAryExpr
                          | _: ConditionalExpr | _: AssignExpr | _: ExprStatement | _: ReturnStatement
-                         | _: GotoStatement | _: ContinueStatement | _: BreakStatement =>
+                         | _: GotoStatement | _: ContinueStatement | _: BreakStatement =>*/
+                    case _: Statement =>
                         increaseScore(currentBlocks, currentFunction, weight)
                     case _ =>
                 }
