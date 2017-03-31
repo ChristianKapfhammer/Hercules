@@ -248,7 +248,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     // Global for current status of loops for loop score calculation and granularity
     private var loopExited: Map[Int, Boolean] = Map.empty[Int, Boolean]
 
-    private def calculateLoopScores(obj: Any, currentLoopSet: Set[Int] = Set.empty[Int], currentLoop: Int = null): Unit = {
+    private def calculateLoopScores(obj: Any, currentLoopSet: Set[Int] = Set.empty[Int], currentLoop: Int = null.asInstanceOf[Int]): Unit = {
         obj match {
             case x: ForStatement =>
                 val counter: Int = loopCounter
@@ -311,6 +311,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     loopExited -= y
                     loopScores += (y -> score)
                     loopExited += (y -> true)
+                }
+            case x: AST =>
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        calculateLoopScores(y, currentLoopSet, currentLoop)
+                    }
                 }
             case x: Opt[_] =>
                 calculateLoopScores(x.entry, currentLoopSet, currentLoop)
