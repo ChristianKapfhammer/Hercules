@@ -28,7 +28,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private val GOTO_WEIGHT: Double = 0.2
     private val RECURSIVE_WEIGHT: Double = 3.0
 
-    private val loopScores: IdentityHashMap[Any, Double] = new IdentityHashMap[Any, Double]()
+    private var loopScores: Map[Int, Double] = Map.empty[Int, Double]
     private var functionDefs: Set[String] = Set.empty[String]
     private var functionScores: Map[String, Double] = Map.empty[String, Double]
     private var functionBlocks: Map[String, Set[String]] = Map.empty[String, Set[String]]
@@ -40,6 +40,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var blockScores: Map[String, Double] = Map.empty[String, Double]
     private var blockNumbering: Map[String, List[Int]] = Map.empty[String, List[Int]]
     private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
+    private var loopCounter: Int = 0
 
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 2): Map[FeatureExpr, List[Int]] = {
         var ignoredBlocks: Map[FeatureExpr, List[Int]] = Map.empty[FeatureExpr, List[Int]]
@@ -49,6 +50,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         // Order is important, blockMapping -> loopScores -> generalGranularity -> blocks -> functions -> function calls
         calculateBlockMapping(ast)
         calculateLoopScores(ast)
+        loopCounter = 0
         granularity(ast)
         calculateBlockScores()
         calculateFunctionScores()
@@ -244,53 +246,71 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     }
 
     // Global for current status of loops for loop score calculation and granularity
-    private val loopExited: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]()
+    private var loopExited: Map[Int, Boolean] = Map.empty[Int, Boolean]
 
-    private def calculateLoopScores(obj: Any, currentLoopSet: Set[Any] = Set.empty[Any], currentLoop: Any = null): Unit = {
+    private def calculateLoopScores(obj: Any, currentLoopSet: Set[Int] = Set.empty[Int], currentLoop: Int = null): Unit = {
         obj match {
             case x: ForStatement =>
-                loopScores.put(x, FOR_WEIGHT)
-                loopExited.put(x, false)
+                val counter: Int = loopCounter
+                loopScores += (loopCounter -> FOR_WEIGHT)
+                loopExited += (loopCounter -> false)
+
+                loopCounter += 1
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        if (!loopExited.get(x)) {
-                            calculateLoopScores(y, currentLoopSet + x, x)
+                        if (!loopExited(counter)) {
+                            calculateLoopScores(y, currentLoopSet + counter, counter)
                         }
                     }
                 }
             case x: WhileStatement =>
-                loopScores.put(x, WHILE_WEIGHT)
-                loopExited.put(x, false)
+                val counter: Int = loopCounter
+                loopScores += (loopCounter -> WHILE_WEIGHT)
+                loopExited += (loopCounter -> false)
+
+                loopCounter += 1
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        if (!loopExited.get(x)) {
-                            calculateLoopScores(y, currentLoopSet + x, x)
+                        if (!loopExited(counter)) {
+                            calculateLoopScores(y, currentLoopSet + counter, counter)
                         }
                     }
                 }
             case x: DoStatement =>
-                loopScores.put(x, DO_WEIGHT)
-                loopExited.put(x, false)
+                val counter: Int = loopCounter
+                loopScores += (loopCounter -> DO_WEIGHT)
+                loopExited += (loopCounter -> false)
+
+                loopCounter += 1
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        if (!loopExited.get(x)) {
-                            calculateLoopScores(y, currentLoopSet + x, x)
+                        if (!loopExited(counter)) {
+                            calculateLoopScores(y, currentLoopSet + counter, counter)
                         }
                     }
                 }
             case x: BreakStatement =>
-                loopScores.replace(currentLoop, loopScores.get(currentLoop) * BREAK_WEIGHT)
-                loopExited.replace(currentLoop, true)
+                val score = loopScores(currentLoop) * BREAK_WEIGHT
+                loopScores -= currentLoop
+                loopExited -= currentLoop
+                loopScores += (currentLoop -> score)
+                loopExited += (currentLoop -> true)
             case x: ContinueStatement =>
-                loopScores.replace(currentLoop, loopScores.get(currentLoop) * CONTINUE_WEIGHT)
-                loopExited.replace(currentLoop, true)
+                val score = loopScores(currentLoop) * CONTINUE_WEIGHT
+                loopScores -= currentLoop
+                loopExited -= currentLoop
+                loopScores += (currentLoop -> score)
+                loopExited += (currentLoop -> true)
             case x: GotoStatement =>
                 for (y <- currentLoopSet) {
-                    loopScores.replace(y, loopScores.get(y) * GOTO_WEIGHT)
-                    loopExited.replace(y, true)
+                    val score = loopScores(y) * GOTO_WEIGHT
+                    loopScores -= y
+                    loopExited -= y
+                    loopScores += (y -> score)
+                    loopExited += (y -> true)
                 }
             case x: Opt[_] =>
                 calculateLoopScores(x.entry, currentLoopSet, currentLoop)
@@ -313,21 +333,27 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private def granularity(obj: Any, currentBlocks: Set[FeatureExpr] = Set.empty[FeatureExpr], currentFunction: String = null, weight: Double = 1.0): Unit = {
         obj match {
             case x: ForStatement =>
+                val currentLoop: Int = loopCounter
+                loopCounter += 1
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, currentBlocks, currentFunction, weight * loopScores.get(x))
+                        granularity(y, currentBlocks, currentFunction, weight * loopScores(currentLoop))
                     }
                 }
             case x: WhileStatement =>
+                val currentLoop: Int = loopCounter
+                loopCounter += 1
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, currentBlocks, currentFunction, weight * loopScores.get(x))
+                        granularity(y, currentBlocks, currentFunction, weight * loopScores(currentLoop))
                     }
                 }
             case x: DoStatement =>
+                val currentLoop: Int = loopCounter
+                loopCounter += 1
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, currentBlocks, currentFunction, weight * loopScores.get(x))
+                        granularity(y, currentBlocks, currentFunction, weight * loopScores(currentLoop))
                     }
                 }
 
