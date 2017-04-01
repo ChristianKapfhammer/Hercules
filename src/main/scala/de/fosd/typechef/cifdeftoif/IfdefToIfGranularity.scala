@@ -465,7 +465,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             if (blockCapsuling.contains(block._1)) {
                 for (subBlock <- blockCapsuling(block._1)) {
-                    sum += blockScores(subBlock)
+                    if (blockScores.contains(subBlock)) {
+                        sum += blockScores(subBlock)
+                    }
                 }
             }
 
@@ -487,6 +489,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             if (functionBlocks.contains(func)) {
                 for (block <- functionBlocks(func)) {
+                    if (blockScores.contains(block))
                     sum += blockScores(block)
                 }
             }
