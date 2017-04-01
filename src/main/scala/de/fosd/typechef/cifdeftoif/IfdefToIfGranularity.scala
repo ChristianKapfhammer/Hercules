@@ -38,7 +38,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var blockToExprs: Map[String, IdentityHashMap[FeatureExpr, FeatureExpr]] = Map.empty[String, IdentityHashMap[FeatureExpr, FeatureExpr]]
     private var blockCapsuling: Map[String, Set[String]] = Map.empty[String, Set[String]]
     private var blockScores: Map[String, Double] = Map.empty[String, Double]
-    private var blockNumbering: Map[String, List[Int]] = Map.empty[String, List[Int]]
     private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     private var loopCounter: Int = 0
 
@@ -56,29 +55,35 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         calculateFunctionScores()
         careFunctionCalls()
 
-        blockScores.foreach(block => {
-            if (block._1 != null) {
-                val split = block._1.split("_")
-                val blockNumber = split(split.size - 1).toInt
-                val ft = blockToExprs(block._1).keySet().toArray()(0).asInstanceOf[FeatureExpr]
+        featureCounter.foreach(counter => {
+            var i: Int = 0
 
-                if (ignoredBlocks.contains(ft)) {
-                    var map = ignoredBlocks(ft)
-                    map += (blockNumber -> (blockToExprs(block._1).size(), block._2 < threshold))
-                    ignoredBlocks -= ft
-                    ignoredBlocks += (ft -> map)
+            while (i < counter._2) {
+                val blockName = counter._1.toString + "_" + i
+                var ignored = false
+
+                if (blockScores.contains(blockName)) {
+                    if (blockScores(blockName) < threshold) {
+                        ignored = true
+                    }
+                }
+
+                if (ignoredBlocks.contains(counter._1)) {
+                    var map = ignoredBlocks(counter._1)
+                    map += (i -> (blockToExprs(blockName).size(), ignored))
+                    ignoredBlocks -= counter._1.asInstanceOf[FeatureExpr]
+                    ignoredBlocks += (counter._1.asInstanceOf[FeatureExpr] -> map)
                 } else {
                     var map = Map.empty[Int, (Int, Boolean)]
-                    map += (blockNumber -> (blockToExprs(block._1).size(), block._2 < threshold))
-                    ignoredBlocks += (ft -> map)
+                    map += (i -> (blockToExprs(blockName).size(), ignored))
+                    ignoredBlocks += (counter._1.asInstanceOf[FeatureExpr] -> map)
                 }
+
+                i += 1
             }
         })
 
-        println(blockScores)
-        println("------------------------------------------------")
         println(ignoredBlocks)
-
 
         ignoredBlocks
     }
@@ -228,15 +233,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
 
                 featureCounter += (currentExpr -> (ftCounter + 1))
-
-                if (blockNumbering.contains(currBlock)) {
-                    val list = blockNumbering(currBlock)
-
-                    blockNumbering -= currBlock
-                    blockNumbering += (currBlock -> (list ::: List(ftCounter)))
-                } else {
-                    blockNumbering += (currBlock -> List(ftCounter))
-                }
             }
 
             // Update block mapping
