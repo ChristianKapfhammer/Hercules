@@ -81,22 +81,9 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
     private var insertPerformanceCounter = true
     private var currentBlockExprCounter: Map[FeatureExpr, (Int, Int)] = Map.empty[FeatureExpr, (Int, Int)]
     private var ignoredBlocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]] = Map.empty[FeatureExpr, Map[Int, (Int, Boolean)]]
-    private var maxBlockCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
 
     override def setIgnoredBlocks(blocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]]): Unit = {
         ignoredBlocks = blocks
-
-        ignoredBlocks.foreach(entry => {
-            var max = 0
-
-            entry._2.foreach(map => {
-                if (max < map._1) {
-                    max = map._1
-                }
-            })
-
-            maxBlockCounter += (entry._1 -> max)
-        })
     }
 
     private def checkIfBlockValid(context: FeatureExpr, counterIncrease: Boolean): Boolean = {
@@ -122,7 +109,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
             }
         }
 
-        if (blockCounter > maxBlockCounter(context)) {
+        if (!ignoredBlocks(context).contains(blockCounter)) {
             return true
         }
 
