@@ -75,7 +75,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
         })
 
-        println(blockScores)
+        println(blockNumbering)
         println("------------------------------------------------")
         println(ignoredBlocks)
 
