@@ -58,6 +58,11 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         featureCounter.foreach(counter => {
             var i: Int = 0
 
+            println("----------------------------")
+            println(counter)
+            println("----------------------------")
+            println(blockToExprs)
+            
             while (i < counter._2) {
                 val blockName = counter._1.toString + "_" + i
                 var ignored = false
