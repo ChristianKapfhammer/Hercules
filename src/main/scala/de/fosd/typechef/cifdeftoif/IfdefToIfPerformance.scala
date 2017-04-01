@@ -115,8 +115,14 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
 
         // Update counters
         if (statementCounter >= ignoredBlocks(context)(blockCounter)._1) {
+            var newBlockCounter = blockCounter+1
+
+            while (ignoredBlocks(context).contains(newBlockCounter) && ignoredBlocks(context)(newBlockCounter)._1 <= 0) {
+                newBlockCounter += 1
+            }
+
             currentBlockExprCounter -= context
-            currentBlockExprCounter += (context -> (blockCounter+1, 0))
+            currentBlockExprCounter += (context -> (newBlockCounter, 0))
         }
 
         !ignoredBlocks(context)(blockCounter)._2

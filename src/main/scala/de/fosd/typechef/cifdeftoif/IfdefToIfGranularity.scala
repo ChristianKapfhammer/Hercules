@@ -61,6 +61,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             while (i < counter._2) {
                 val blockName = counter._1.toString + "_" + i
                 var ignored = false
+                var stmtSize = 0
 
                 if (blockScores.contains(blockName)) {
                     if (blockScores(blockName) < threshold) {
@@ -68,14 +69,19 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
+                if (blockToExprs.contains(blockName)) {
+                    stmtSize = blockToExprs(blockName).size()
+                }
+
                 if (ignoredBlocks.contains(counter._1)) {
                     var map = ignoredBlocks(counter._1)
-                    map += (i -> (blockToExprs(blockName).size(), ignored))
+
+                    map += (i -> (stmtSize, ignored))
                     ignoredBlocks -= counter._1.asInstanceOf[FeatureExpr]
                     ignoredBlocks += (counter._1.asInstanceOf[FeatureExpr] -> map)
                 } else {
                     var map = Map.empty[Int, (Int, Boolean)]
-                    map += (i -> (blockToExprs(blockName).size(), ignored))
+                    map += (i -> (stmtSize, ignored))
                     ignoredBlocks += (counter._1.asInstanceOf[FeatureExpr] -> map)
                 }
 
