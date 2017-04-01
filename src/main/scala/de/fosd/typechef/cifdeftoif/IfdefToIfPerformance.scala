@@ -133,21 +133,6 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         }
 
         !ignoredBlocks(context)(blockCounter)._2
-
-        /*if (currentBlockCounter.contains(context)) {
-            blockCounter = currentBlockCounter(context)
-
-            if (counterIncrease) {
-                currentBlockCounter -= context
-                currentBlockCounter += (context -> (counter + 1))
-            }
-        } else {
-            if (counterIncrease) {
-                currentBlockCounter += (context -> 1)
-            }
-        }
-
-        !(ignoredBlocks.contains(context) && ignoredBlocks(context).contains(counter))*/
     }
 
     override def correctPerformanceFeaturePrefix(newPrefix: String): Unit = {
