@@ -89,7 +89,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
         })
 
-        println(ignoredBlocks)
+        println(ast)
 
         ignoredBlocks
     }
