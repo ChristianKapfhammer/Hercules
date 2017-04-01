@@ -372,25 +372,31 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         functionDef = funcDef.getName
                         functionDefs = functionDefs + functionDef
                     case funcCall: PostfixExpr =>
-                        (funcCall.p, funcCall.s) match {
-                            case t: (Id, FunctionCall) =>
-                                for (block <- currentBlocks.filter(p => p != FeatureExprFactory.True)) {
-                                    val tuple = new FuncCall(t._1.name, block, weight)
-                                    if (globalFunctionCalls.contains(currentFunction)) {
-                                        val list = globalFunctionCalls(currentFunction)
+                        var funcName: String = null
 
-                                        globalFunctionCalls -= currentFunction
-                                        globalFunctionCalls += (currentFunction -> (list ::: List(tuple)))
-                                    } else {
-                                        globalFunctionCalls += (currentFunction -> List(tuple))
-                                    }
-                                }
+                        funcCall.p match {
+                            case i: Id =>
+                                funcName = i.name
                             case _ =>
                         }
-                    /*case _: Declaration | _: FunctionCall | _: ArrayAccess | _: SizeOfExprT | _: SizeOfExprU
-                         | _: CastExpr | _: PointerDerefExpr | _: PointerCreationExpr | _: UnaryOpExpr | _: NAryExpr
-                         | _: ConditionalExpr | _: AssignExpr | _: ExprStatement | _: ReturnStatement
-                         | _: GotoStatement | _: ContinueStatement | _: BreakStatement =>*/
+
+                        if (funcName != null) {
+                            funcCall.s match {
+                                case t: FunctionCall =>
+                                    for (block <- currentBlocks.filter(p => p != FeatureExprFactory.True)) {
+                                        val tuple = new FuncCall(funcName, block, weight)
+                                        if (globalFunctionCalls.contains(currentFunction)) {
+                                            val list = globalFunctionCalls(currentFunction)
+
+                                            globalFunctionCalls -= currentFunction
+                                            globalFunctionCalls += (currentFunction -> (list ::: List(tuple)))
+                                        } else {
+                                            globalFunctionCalls += (currentFunction -> List(tuple))
+                                        }
+                                    }
+                                case _ =>
+                            }
+                        }
                     case _: Statement =>
                         increaseScore(currentBlocks, currentFunction, weight)
                     case _ =>
