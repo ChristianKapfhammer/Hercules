@@ -57,6 +57,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         careFunctionCalls()
 
         blockScores.foreach(block => {
+            println(block)
             val split = block._1.split("_")
             val blockNumber = split(split.size - 1).toInt
             val ft = blockToExprs(block._1).keySet().toArray()(0).asInstanceOf[FeatureExpr]
