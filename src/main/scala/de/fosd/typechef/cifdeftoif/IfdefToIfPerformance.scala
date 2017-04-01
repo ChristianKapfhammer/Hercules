@@ -79,7 +79,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
     private var featurePrefix2 = "f_"
     private var performanceCounter = 0
     private var insertPerformanceCounter = true
-    private var blockMax: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
+    private var maxBlockCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     private var currentBlockExprCounter: Map[FeatureExpr, (Int, Int)] = Map.empty[FeatureExpr, (Int, Int)]
     private var ignoredBlocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]] = Map.empty[FeatureExpr, Map[Int, (Int, Boolean)]]
 
@@ -95,7 +95,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 }
             })
 
-            blockMax += (entry._1 -> max)
+            maxBlockCounter += (entry._1 -> max)
         })
     }
 
@@ -122,7 +122,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
             }
         }
 
-        if (blockCounter > blockMax(context)) {
+        if (blockCounter > maxBlockCounter(context)) {
             return true
         }
 
