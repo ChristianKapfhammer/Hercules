@@ -79,9 +79,9 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
     private var featurePrefix2 = "f_"
     private var performanceCounter = 0
     private var insertPerformanceCounter = true
-    private var maxBlockCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     private var currentBlockExprCounter: Map[FeatureExpr, (Int, Int)] = Map.empty[FeatureExpr, (Int, Int)]
     private var ignoredBlocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]] = Map.empty[FeatureExpr, Map[Int, (Int, Boolean)]]
+    private var maxBlockCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
 
     override def setIgnoredBlocks(blocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]]): Unit = {
         ignoredBlocks = blocks
