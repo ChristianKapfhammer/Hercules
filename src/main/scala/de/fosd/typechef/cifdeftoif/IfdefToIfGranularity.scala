@@ -57,20 +57,23 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         careFunctionCalls()
 
         blockScores.foreach(block => {
-            println(block)
-            val split = block._1.split("_")
-            val blockNumber = split(split.size - 1).toInt
-            val ft = blockToExprs(block._1).keySet().toArray()(0).asInstanceOf[FeatureExpr]
+            if (block._1 != null) {
+                val split = block._1.split("_")
+                val blockNumber = split(split.size - 1).toInt
+                val ft = blockToExprs(block._1).keySet().toArray()(0).asInstanceOf[FeatureExpr]
 
-            if (ignoredBlocks.contains(ft)) {
-                var map = ignoredBlocks(ft)
-                map += (blockNumber -> (blockToExprs(block._1).size(), block._2 < threshold))
-                ignoredBlocks -= ft
-                ignoredBlocks += (ft -> map)
+                if (ignoredBlocks.contains(ft)) {
+                    var map = ignoredBlocks(ft)
+                    map += (blockNumber -> (blockToExprs(block._1).size(), block._2 < threshold))
+                    ignoredBlocks -= ft
+                    ignoredBlocks += (ft -> map)
+                } else {
+                    var map = Map.empty[Int, (Int, Boolean)]
+                    map += (blockNumber -> (blockToExprs(block._1).size(), block._2 < threshold))
+                    ignoredBlocks += (ft -> map)
+                }
             } else {
-                var map = Map.empty[Int, (Int, Boolean)]
-                map += (blockNumber -> (blockToExprs(block._1).size(), block._2 < threshold))
-                ignoredBlocks += (ft -> map)
+                println("Something's null")
             }
         })
 
