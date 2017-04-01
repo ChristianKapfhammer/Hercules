@@ -72,10 +72,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     map += (blockNumber -> (blockToExprs(block._1).size(), block._2 < threshold))
                     ignoredBlocks += (ft -> map)
                 }
-            } else {
-                println("Something's null")
             }
         })
+
+        println(blockScores)
+        println("------------------------------------------------")
+        println(ignoredBlocks)
+
 
         ignoredBlocks
     }
