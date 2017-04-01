@@ -109,7 +109,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
             }
         }
 
-        if (!ignoredBlocks(context).contains(blockCounter)) {
+        if (!ignoredBlocks.contains(context) || !ignoredBlocks(context).contains(blockCounter)) {
             return true
         }
 
