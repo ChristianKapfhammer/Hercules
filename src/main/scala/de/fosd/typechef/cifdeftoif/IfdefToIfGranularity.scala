@@ -11,7 +11,7 @@ trait IfdefToIfGranularityInterface {
 
     protected var featureModel: FeatureModel = _
 
-    def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int): Map[FeatureExpr, List[Int]]
+    def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int): Map[FeatureExpr, Map[Int, (Int, Boolean)]]
 }
 
 trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IOUtilities {
@@ -42,8 +42,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     private var loopCounter: Int = 0
 
-    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 2): Map[FeatureExpr, List[Int]] = {
-        var ignoredBlocks: Map[FeatureExpr, List[Int]] = Map.empty[FeatureExpr, List[Int]]
+    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 2): Map[FeatureExpr, Map[Int, (Int, Boolean)]] = {
+        var ignoredBlocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]] = Map.empty[FeatureExpr, Map[Int, (Int, Boolean)]]
 
         featureModel = fm
 
@@ -57,16 +57,19 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         careFunctionCalls()
 
         blockScores.foreach(block => {
-            if (block._2 < threshold) {
-                val ft = blockToExprs(block._1).keySet().toArray()(0).asInstanceOf[FeatureExpr]
+            val split = block._1.split("_")
+            val blockNumber = split(split.size - 1).toInt
+            val ft = blockToExprs(block._1).keySet().toArray()(0).asInstanceOf[FeatureExpr]
 
-                if (ignoredBlocks.contains(ft)) {
-                    val list = ignoredBlocks(ft)
-                    ignoredBlocks -= ft
-                    ignoredBlocks += (ft -> (list ::: blockNumbering(block._1)))
-                } else {
-                    ignoredBlocks += (ft  -> blockNumbering(block._1))
-                }
+            if (ignoredBlocks.contains(ft)) {
+                var map = ignoredBlocks(ft)
+                map += (blockNumber -> (blockToExprs(block._1).size(), block._2 < threshold))
+                ignoredBlocks -= ft
+                ignoredBlocks += (ft -> map)
+            } else {
+                var map = Map.empty[Int, (Int, Boolean)]
+                map += (blockNumber -> (blockToExprs(block._1).size(), block._2 < threshold))
+                ignoredBlocks += (ft -> map)
             }
         })
 
