@@ -57,7 +57,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         careFunctionCalls()
 
         blockScores.foreach(block => {
-            if (block._1 != null) {
+            if (block._1 != null && blockToStatements.contains(block._1)) {
                 val statements = blockToStatements(block._1)
                 val ignored = block._2 < threshold
 
