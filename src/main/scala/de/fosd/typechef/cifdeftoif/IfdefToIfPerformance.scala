@@ -92,6 +92,8 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         s match {
             case ExprStatement(AssignExpr(p: PostfixExpr, _, _)) =>
                 !ignoredStatements.containsKey(p) || !ignoredStatements.get(p)
+            case ExprStatement(CastExpr(_, e)) =>
+                !ignoredStatements.containsKey(e) || !ignoredStatements.get(e)
             case _ =>
                 !ignoredStatements.containsKey(s) || !ignoredStatements.get(s)
         }

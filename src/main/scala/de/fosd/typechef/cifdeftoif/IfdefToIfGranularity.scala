@@ -64,6 +64,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 statements.keySet().toArray.foreach({
                         case ExprStatement(AssignExpr(p: PostfixExpr, _, _)) =>
                             ignoredStatements.put(p, ignored)
+                        case ExprStatement(CastExpr(_, e)) =>
+                            ignoredStatements.put(e, ignored)
                         case s: Statement =>
                             ignoredStatements.put(s, ignored)
                     }
