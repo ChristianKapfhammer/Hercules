@@ -120,10 +120,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     // There are no measurement functions for DeclarationStatements in general. We have to filter them
                     // to look at only the important blocks
                     x.entry match {
-                        case _: FunctionCall | _: ArrayAccess | _: SizeOfExprT | _: SizeOfExprU
-                             | _: CastExpr | _: PointerDerefExpr | _: PointerCreationExpr | _: UnaryOpExpr | _: NAryExpr
-                             | _: ConditionalExpr | _: AssignExpr | _: ExprStatement | _: ReturnStatement
-                             | _: GotoStatement | _: ContinueStatement | _: BreakStatement =>
+                        case _: DeclarationStatement =>
+                            calculateBlockMapping(x.entry, currentBlocks, currentFunction)
+                        case _: Statement =>
                             updateBlockMapping(x.condition)
 
                             if (x.condition != FeatureExprFactory.True) {
