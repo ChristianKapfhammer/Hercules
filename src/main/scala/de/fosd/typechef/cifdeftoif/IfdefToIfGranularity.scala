@@ -11,7 +11,7 @@ trait IfdefToIfGranularityInterface {
 
     protected var featureModel: FeatureModel = _
 
-    def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int): Map[FeatureExpr, Map[Int, (Int, Boolean)]]
+    def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int): IdentityHashMap[Statement, Boolean]
 }
 
 trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IOUtilities {
@@ -36,13 +36,14 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var globalFunctionCalls: Map[String, List[FuncCall]] = Map.empty[String, List[FuncCall]]
     private val exprToBlock: IdentityHashMap[FeatureExpr, String] = new IdentityHashMap[FeatureExpr, String]()
     private var blockToExprs: Map[String, IdentityHashMap[FeatureExpr, FeatureExpr]] = Map.empty[String, IdentityHashMap[FeatureExpr, FeatureExpr]]
+    private var blockToStatements: Map[String, IdentityHashMap[Statement, Statement]] = Map.empty[String, IdentityHashMap[Statement, Statement]]
     private var blockCapsuling: Map[String, Set[String]] = Map.empty[String, Set[String]]
     private var blockScores: Map[String, Double] = Map.empty[String, Double]
     private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     private var loopCounter: Int = 0
 
-    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 2): Map[FeatureExpr, Map[Int, (Int, Boolean)]] = {
-        var ignoredBlocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]] = Map.empty[FeatureExpr, Map[Int, (Int, Boolean)]]
+    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 2): IdentityHashMap[Statement, Boolean] = {
+        val ignoredStatements: IdentityHashMap[Statement, Boolean] = new IdentityHashMap[Statement, Boolean]
 
         featureModel = fm
 
@@ -55,41 +56,16 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         calculateFunctionScores()
         careFunctionCalls()
 
-        featureCounter.foreach(counter => {
-            var i: Int = 0
-            
-            while (i < counter._2) {
-                val blockName = counter._1.toString + "_" + i
-                var ignored = false
-                var stmtSize = 0
+        blockScores.foreach(block => {
+            val statements = blockToStatements(block._1)
+            val ignored = block._2 < threshold
 
-                if (blockScores.contains(blockName)) {
-                    if (blockScores(blockName) < threshold) {
-                        ignored = true
-                    }
-                }
-
-                if (blockToExprs.contains(blockName)) {
-                    stmtSize = blockToExprs(blockName).size()
-                }
-
-                if (ignoredBlocks.contains(counter._1)) {
-                    var map = ignoredBlocks(counter._1)
-
-                    map += (i -> (stmtSize, ignored))
-                    ignoredBlocks -= counter._1.asInstanceOf[FeatureExpr]
-                    ignoredBlocks += (counter._1.asInstanceOf[FeatureExpr] -> map)
-                } else {
-                    var map = Map.empty[Int, (Int, Boolean)]
-                    map += (i -> (stmtSize, ignored))
-                    ignoredBlocks += (counter._1.asInstanceOf[FeatureExpr] -> map)
-                }
-
-                i += 1
-            }
+            statements.keySet().toArray.foreach(stmt => {
+                ignoredStatements.put(stmt.asInstanceOf[Statement], ignored)
+            })
         })
 
-        ignoredBlocks
+        ignoredStatements
     }
 
     // Global for block mapping calculation
@@ -120,11 +96,24 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     x.entry match {
                         case _: DeclarationStatement =>
                             calculateBlockMapping(x.entry, currentBlocks, currentFunction)
-                        case _: Statement =>
+                        case s: Statement =>
                             updateBlockMapping(x.condition)
 
                             if (x.condition != FeatureExprFactory.True) {
                                 val block = currentBlockMapping(x.condition)
+
+                                if (blockToStatements.contains(block)) {
+                                    val map = blockToStatements(block)
+                                    map.put(s, s)
+
+                                    blockToStatements -= block
+                                    blockToStatements += (block -> map)
+                                } else {
+                                    val map = new IdentityHashMap[Statement, Statement]()
+                                    map.put(s, s)
+
+                                    blockToStatements += (block -> map)
+                                }
 
                                 if (functionBlocks.contains(currentFunction)) {
                                     if (!functionBlocks(currentFunction).contains(block)) {

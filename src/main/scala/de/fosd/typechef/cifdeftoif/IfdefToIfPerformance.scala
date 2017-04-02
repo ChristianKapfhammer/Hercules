@@ -1,6 +1,7 @@
 package de.fosd.typechef.cifdeftoif
 
 import java.util
+import java.util.IdentityHashMap
 
 import de.fosd.typechef.conditional.{Conditional, One, Opt}
 import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory}
@@ -56,7 +57,7 @@ trait IfdefToIfPerformanceInterface {
         // Nothing
     }
 
-    def setIgnoredBlocks(blocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]]) = {
+    def setIgnoredStatements(statements: IdentityHashMap[Statement, Boolean]) = {
         // Nothing
     }
 }
@@ -79,53 +80,16 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
     private var featurePrefix2 = "f_"
     private var performanceCounter = 0
     private var insertPerformanceCounter = true
-    private var currentBlockExprCounter: Map[FeatureExpr, (Int, Int)] = Map.empty[FeatureExpr, (Int, Int)]
-    private var ignoredBlocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]] = Map.empty[FeatureExpr, Map[Int, (Int, Boolean)]]
+    //private var currentBlockExprCounter: Map[FeatureExpr, (Int, Int)] = Map.empty[FeatureExpr, (Int, Int)]
+    //private var ignoredBlocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]] = Map.empty[FeatureExpr, Map[Int, (Int, Boolean)]]
+    private var ignoredStatements: IdentityHashMap[Statement, Boolean] = new IdentityHashMap[Statement, Boolean]()
 
-    override def setIgnoredBlocks(blocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]]): Unit = {
-        ignoredBlocks = blocks
+    override def setIgnoredStatements(statements: IdentityHashMap[Statement, Boolean]): Unit = {
+        ignoredStatements = statements
     }
 
-    private def checkIfBlockValid(context: FeatureExpr, counterIncrease: Boolean): Boolean = {
-        var blockCounter = 0
-        var statementCounter = 1
-
-        if (currentBlockExprCounter.contains(context)) {
-            val exprCounter = currentBlockExprCounter(context)
-
-            blockCounter = exprCounter._1
-
-            if (counterIncrease) {
-                statementCounter = exprCounter._2
-                statementCounter += 1
-
-                currentBlockExprCounter -= context
-                currentBlockExprCounter += (context -> (blockCounter, statementCounter))
-            }
-
-        } else {
-            if (counterIncrease) {
-                currentBlockExprCounter += (context -> (blockCounter, statementCounter))
-            }
-        }
-
-        if (!ignoredBlocks.contains(context) || !ignoredBlocks(context).contains(blockCounter)) {
-            return true
-        }
-
-        // Update counters
-        if (statementCounter >= ignoredBlocks(context)(blockCounter)._1) {
-            var newBlockCounter = blockCounter+1
-
-            while (ignoredBlocks(context).contains(newBlockCounter) && ignoredBlocks(context)(newBlockCounter)._1 <= 0) {
-                newBlockCounter += 1
-            }
-
-            currentBlockExprCounter -= context
-            currentBlockExprCounter += (context -> (newBlockCounter, 0))
-        }
-
-        !ignoredBlocks(context)(blockCounter)._2
+    private def isStatementLegal(s: Statement): Boolean = {
+        return !ignoredStatements.containsKey(s) || !ignoredStatements.get(s)
     }
 
     override def correctPerformanceFeaturePrefix(newPrefix: String): Unit = {
@@ -158,21 +122,32 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 Opt(ft, fixBreakAndContinues(fixLabelAndGotos(f), ifdefDepth, forDoWhileIfdefDepth, ifdefDepth, lastStmtWasSwitch))
             case CompoundStatement(innerStmts) =>
                 CompoundStatement(innerStmts.flatMap {
-                    case Opt(ft, ReturnStatement(None)) if ifdefDepth > 0 =>
-                        var result: List[Opt[Statement]] = List()
-                        val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
-                        for (counter <- 0 until ifdefDepth) {
-                            result = afterStmt :: result
+                    case Opt(ft, rt: ReturnStatement) if ifdefDepth > 0 =>
+                        rt.expr match {
+                            case None =>
+                                if (isStatementLegal(rt)) {
+                                    var result: List[Opt[Statement]] = List()
+                                    val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
+                                    for (counter <- 0 until ifdefDepth) {
+                                        result = afterStmt :: result
+                                    }
+                                    result ++ List(Opt(ft, ReturnStatement(None)))
+                                } else {
+                                    List(Opt(ft, ReturnStatement(None)))
+                                }
+                            case Some(expr) =>
+                                if (isStatementLegal(rt)) {
+                                    var result: List[Opt[Statement]] = List()
+                                    val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
+                                    val returnMacroCall = Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + "0" + ")"))))))))
+                                    for (counter <- 1 until ifdefDepth) {
+                                        result = afterStmt :: result
+                                    }
+                                    result ++ List(returnMacroCall)
+                                } else {
+                                    List(Opt(ft, ReturnStatement(Some(expr))))
+                                }
                         }
-                        result ++ List(Opt(ft, ReturnStatement(None)))
-                    case Opt(ft, ReturnStatement(Some(expr))) if ifdefDepth > 0 =>
-                        var result: List[Opt[Statement]] = List()
-                        val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
-                        val returnMacroCall = Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + "0" + ")"))))))))
-                        for (counter <- 1 until ifdefDepth) {
-                            result = afterStmt :: result
-                        }
-                        result ++ List(returnMacroCall)
                     case o@Opt(ft, ExprStatement(PostfixExpr(Id(name), _))) if name.equals(returnMacroName) && ifdefDepth > 0 =>
                         var result: List[Opt[Statement]] = List()
                         val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
@@ -180,26 +155,35 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                             result = afterStmt :: result
                         }
                         result ++ List(o)
-                    case Opt(ft, ContinueStatement()) if ifdefDepth > 0 =>
-                        var result: List[Opt[Statement]] = List()
-                        val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
-                        for (counter <- 0 until ifdefDepth - forDoWhileIfdefDepth) {
-                            result = afterStmt :: result
-                        }
-                        result ++ List(Opt(ft, ContinueStatement()))
-                    case Opt(ft, BreakStatement()) if ifdefDepth > 0 =>
-                        var result: List[Opt[Statement]] = List()
-                        val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
-                        var limit = 0
-                        if (lastStmtWasSwitch) {
-                            limit = switchIfdefDepth
+                    case Opt(ft, cs: ContinueStatement) if ifdefDepth > 0 =>
+                        if (isStatementLegal(cs)) {
+                            var result: List[Opt[Statement]] = List()
+                            val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
+                            for (counter <- 0 until ifdefDepth - forDoWhileIfdefDepth) {
+                                result = afterStmt :: result
+                            }
+                            result ++ List(Opt(ft, ContinueStatement()))
                         } else {
-                            limit = forDoWhileIfdefDepth
+                            List(Opt(ft, ContinueStatement()))
                         }
-                        for (counter <- 0 until ifdefDepth - limit) {
-                            result = afterStmt :: result
+
+                    case Opt(ft, bt: BreakStatement) if ifdefDepth > 0 =>
+                        if (isStatementLegal(bt)) {
+                            var result: List[Opt[Statement]] = List()
+                            val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
+                            var limit = 0
+                            if (lastStmtWasSwitch) {
+                                limit = switchIfdefDepth
+                            } else {
+                                limit = forDoWhileIfdefDepth
+                            }
+                            for (counter <- 0 until ifdefDepth - limit) {
+                                result = afterStmt :: result
+                            }
+                            result ++ List(Opt(ft, BreakStatement()))
+                        } else {
+                            List(Opt(ft, BreakStatement()))
                         }
-                        result ++ List(Opt(ft, BreakStatement()))
                     case k =>
                         List(fixBreakAndContinues(k, ifdefDepth, forDoWhileIfdefDepth, switchIfdefDepth, lastStmtWasSwitch))
                 })
@@ -308,7 +292,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 case i@IfStatement(cond, One(CompoundStatement(List(Opt(ft, ContinueStatement())))), List(), None) =>
                     //IfStatement(cond, One(CompoundStatement(List(Opt(trueF3, afterStmt), Opt(ft, ContinueStatement())))), List(), None)
 
-                    if (continueExitsContext && checkIfBlockValid(context, false)) {
+                    if (continueExitsContext) {
                         IfStatement(cond, One(CompoundStatement(List(Opt(trueF3, afterStmt), Opt(ft, ContinueStatement())))), List(), None)
                     } else {
                         i
@@ -322,21 +306,9 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 case CompoundStatement(innerStmts) =>
                     CompoundStatement(innerStmts.flatMap {
                         case Opt(ft, ReturnStatement(None)) =>
-                            //List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
-
-                            if (checkIfBlockValid(context, false)) {
-                                List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
-                            } else {
-                                List(Opt(ft, ReturnStatement(None)))
-                            }
+                            List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
                         case Opt(ft, ReturnStatement(Some(expr))) =>
-                            //List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
-
-                            if (checkIfBlockValid(context, false)) {
-                                List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
-                            } else {
-                                List(Opt(ft, ReturnStatement(Some(expr))))
-                            }
+                            List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
                         case k =>
                             List(alterStatementHelper(k, continueExitsContext))
                     })
@@ -347,35 +319,34 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
             case i@IfStatement(cond, One(CompoundStatement(List(Opt(ft, ContinueStatement())))), List(), None) =>
                 //IfStatement(cond, One(CompoundStatement(List(Opt(trueF3, afterStmt), Opt(ft, ContinueStatement())))), List(), None)
 
-                if (checkIfBlockValid(context, false)) {
+                if (isStatementLegal(i)) {
                     IfStatement(cond, One(CompoundStatement(List(Opt(trueF3, afterStmt), Opt(ft, ContinueStatement())))), List(), None)
                 } else {
                     i
                 }
             case CompoundStatement(innerStmts) =>
                 CompoundStatement(innerStmts.flatMap {
-                    case Opt(ft, ReturnStatement(None)) =>
-                        //List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
-
-                        if (checkIfBlockValid(context, false)) {
-                            List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
-                        } else {
-                            List(Opt(ft, ReturnStatement(None)))
-                        }
-                    case Opt(ft, ReturnStatement(Some(expr))) =>
-                        //List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
-
-                        if (checkIfBlockValid(context, false)) {
-                            List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
-                        } else {
-                            List(Opt(ft, ReturnStatement(Some(expr))))
+                    case Opt(ft, rs: ReturnStatement) =>
+                        rs.expr match {
+                            case None =>
+                                if (isStatementLegal(rs)) {
+                                    List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
+                                } else {
+                                    List(Opt(ft, ReturnStatement(None)))
+                                }
+                            case Some(expr) =>
+                                if (isStatementLegal(rs)) {
+                                    List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
+                                } else {
+                                    List(Opt(ft, ReturnStatement(Some(expr))))
+                                }
                         }
                     case k =>
                         List(k)
                 })
         })
         if (last.entry.isInstanceOf[ReturnStatement]) {
-            if (checkIfBlockValid(context, true)) {
+            if (isStatementLegal(last.entry)) {
                 result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement].innerStatements)
             } else {
                 result = cmpstmt
@@ -384,7 +355,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
             //val newCompound = r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement]
             //val newCompound = alterStatementHelper(cmpstmt)
             val newCompound = cmpstmt
-            if (checkIfBlockValid(context, true)) {
+            if (isStatementLegal(cmpstmt.innerStatements.head.entry)) {
                 result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ newCompound.innerStatements ++ List(Opt(trueF3, afterStmt)))
             } else {
                 result = newCompound
