@@ -57,7 +57,7 @@ trait IfdefToIfPerformanceInterface {
         // Nothing
     }
 
-    def setIgnoredStatements(statements: IdentityHashMap[Statement, Boolean]) = {
+    def setIgnoredStatements(statements: IdentityHashMap[Any, Boolean]) = {
         // Nothing
     }
 }
@@ -82,14 +82,19 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
     private var insertPerformanceCounter = true
     //private var currentBlockExprCounter: Map[FeatureExpr, (Int, Int)] = Map.empty[FeatureExpr, (Int, Int)]
     //private var ignoredBlocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]] = Map.empty[FeatureExpr, Map[Int, (Int, Boolean)]]
-    private var ignoredStatements: IdentityHashMap[Statement, Boolean] = new IdentityHashMap[Statement, Boolean]()
+    private var ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]()
 
-    override def setIgnoredStatements(statements: IdentityHashMap[Statement, Boolean]): Unit = {
+    override def setIgnoredStatements(statements: IdentityHashMap[Any, Boolean]): Unit = {
         ignoredStatements = statements
     }
 
     private def isStatementLegal(s: Statement): Boolean = {
-        return !ignoredStatements.containsKey(s) || !ignoredStatements.get(s)
+        s match {
+            case ExprStatement(AssignExpr(p: PostfixExpr, _, _)) =>
+                !ignoredStatements.containsKey(p) || !ignoredStatements.get(p)
+            case _ =>
+                !ignoredStatements.containsKey(s) || !ignoredStatements.get(s)
+        }
     }
 
     override def correctPerformanceFeaturePrefix(newPrefix: String): Unit = {

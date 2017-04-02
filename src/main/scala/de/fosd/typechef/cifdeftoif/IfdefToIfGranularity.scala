@@ -11,7 +11,7 @@ trait IfdefToIfGranularityInterface {
 
     protected var featureModel: FeatureModel = _
 
-    def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int): IdentityHashMap[Statement, Boolean]
+    def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int): IdentityHashMap[Any, Boolean]
 }
 
 trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IOUtilities {
@@ -42,8 +42,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     private var loopCounter: Int = 0
 
-    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 2): IdentityHashMap[Statement, Boolean] = {
-        val ignoredStatements: IdentityHashMap[Statement, Boolean] = new IdentityHashMap[Statement, Boolean]
+    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 2): IdentityHashMap[Any, Boolean] = {
+        val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
 
         featureModel = fm
 
@@ -61,9 +61,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 val statements = blockToStatements(block._1)
                 val ignored = block._2 < threshold
 
-                statements.keySet().toArray.foreach(stmt => {
-                    ignoredStatements.put(stmt.asInstanceOf[Statement], ignored)
-                })
+                statements.keySet().toArray.foreach({
+                        case ExprStatement(AssignExpr(p: PostfixExpr, _, _)) =>
+                            ignoredStatements.put(p, ignored)
+                        case s: Statement =>
+                            ignoredStatements.put(s, ignored)
+                    }
+                )
             }
         })
 
