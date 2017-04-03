@@ -3,7 +3,7 @@ package de.fosd.typechef.cifdeftoif
 import java.util
 import java.util.IdentityHashMap
 
-import de.fosd.typechef.conditional.{Conditional, One, Opt}
+import de.fosd.typechef.conditional.{Choice, Conditional, One, Opt}
 import de.fosd.typechef.featureexpr.{FeatureExpr, FeatureExprFactory}
 import de.fosd.typechef.parser.c._
 import org.apache.logging.log4j.LogManager
@@ -88,15 +88,63 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         ignoredStatements = statements
     }
 
+    private def getASTElements(obj: Any, currentList: IdentityHashMap[Any, Any]): IdentityHashMap[Any, Any] = {
+        var list = currentList
+
+        obj match {
+            case x: AST =>
+                list.put(x, x)
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        list = getASTElements(y, list)
+                    }
+                }
+            case x: Opt[_] =>
+                list = getASTElements(x.entry, list)
+            case One(x) =>
+                list = getASTElements(x, list)
+            case x: Choice[_] =>
+                list = getASTElements(x.thenBranch, list)
+                list = getASTElements(x.elseBranch, list)
+            case x: List[_] =>
+                for (elem <- x) {
+                    list = getASTElements(elem, list)
+                }
+            case Some(x) =>
+                list = getASTElements(x, list)
+            case None =>
+            case o =>
+        }
+
+        list
+    }
+
     private def isStatementLegal(s: Statement): Boolean = {
-        s match {
+        val stmtMap = getASTElements(s, new IdentityHashMap[Any, Any]())
+
+        ignoredStatements.keySet().toArray.foreach(stmt => {
+            val ignoredMap = getASTElements(stmt, new IdentityHashMap[Any, Any]())
+
+            stmtMap.keySet().toArray.foreach(prt => {
+                if (ignoredMap.containsKey(prt)) {
+                    return false
+                }
+            })
+        })
+
+        true
+
+        /*s match {
             case ExprStatement(AssignExpr(p: PostfixExpr, _, _)) =>
+                !ignoredStatements.containsKey(p) || !ignoredStatements.get(p)
+            case ExprStatement(AssignExpr(_, _, p: PostfixExpr)) =>
                 !ignoredStatements.containsKey(p) || !ignoredStatements.get(p)
             case ExprStatement(CastExpr(_, e)) =>
                 !ignoredStatements.containsKey(e) || !ignoredStatements.get(e)
             case _ =>
                 !ignoredStatements.containsKey(s) || !ignoredStatements.get(s)
-        }
+        }*/
     }
 
     override def correctPerformanceFeaturePrefix(newPrefix: String): Unit = {
