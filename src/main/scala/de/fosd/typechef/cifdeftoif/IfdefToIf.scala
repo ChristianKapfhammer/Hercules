@@ -738,7 +738,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
       * Calls the replaceOptAndId function first and then the transformRecursive function on given Product.
      */
     def replaceAndTransform[T <: Product](t: T, feat: FeatureExpr, isTopLevel: Boolean, functionContext: FeatureExpr): T = {
-        transformRecursive(replaceOptAndId(t, feat, functionContext), feat, isTopLevel, functionContext)
+        val replaced = replaceOptAndId(t, feat, functionContext)
+        updateIgnoredStatements(t, replaced)
+        transformRecursive(replaced, feat, isTopLevel, functionContext)
     }
 
     /**

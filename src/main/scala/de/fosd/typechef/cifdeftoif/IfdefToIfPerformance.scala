@@ -60,6 +60,10 @@ trait IfdefToIfPerformanceInterface {
     def setIgnoredStatements(statements: IdentityHashMap[Any, Boolean]) = {
         // Nothing
     }
+
+    def updateIgnoredStatements(old: Any, updated: Any) = {
+        // Nothing
+    }
 }
 
 trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilities {
@@ -86,6 +90,13 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
 
     override def setIgnoredStatements(statements: IdentityHashMap[Any, Boolean]): Unit = {
         ignoredStatements = statements
+    }
+
+    override def updateIgnoredStatements(old: Any, updated: Any): Unit = {
+        if (ignoredStatements.containsKey(old) && !ignoredStatements.containsKey(updated)) {
+            ignoredStatements.remove(old)
+            ignoredStatements.put(updated, false)
+        }
     }
 
     private def getASTElements(obj: Any, currentList: IdentityHashMap[Any, Any]): IdentityHashMap[Any, Any] = {
@@ -121,7 +132,8 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
     }
 
     private def isStatementLegal(s: Statement): Boolean = {
-        val stmtMap = getASTElements(s, new IdentityHashMap[Any, Any]())
+        !ignoredStatements.containsKey(s)
+        /*val stmtMap = getASTElements(s, new IdentityHashMap[Any, Any]())
 
         ignoredStatements.keySet().toArray.foreach(stmt => {
             val ignoredMap = getASTElements(stmt, new IdentityHashMap[Any, Any]())
@@ -133,7 +145,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
             })
         })
 
-        true
+        true*/
 
         /*s match {
             case ExprStatement(AssignExpr(p: PostfixExpr, _, _)) =>
@@ -177,39 +189,40 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 Opt(ft, fixBreakAndContinues(fixLabelAndGotos(f), ifdefDepth, forDoWhileIfdefDepth, ifdefDepth, lastStmtWasSwitch))
             case CompoundStatement(innerStmts) =>
                 CompoundStatement(innerStmts.flatMap {
-                    case Opt(ft, rt: ReturnStatement) if ifdefDepth > 0 =>
-                        rt.expr match {
-                            case None =>
-                                if (isStatementLegal(rt)) {
-                                    var result: List[Opt[Statement]] = List()
-                                    val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
-                                    for (counter <- 0 until ifdefDepth) {
-                                        result = afterStmt :: result
-                                    }
-                                    result ++ List(Opt(ft, ReturnStatement(None)))
-                                } else {
-                                    List(Opt(ft, ReturnStatement(None)))
-                                }
-                            case Some(expr) =>
-                                if (isStatementLegal(rt)) {
-                                    var result: List[Opt[Statement]] = List()
-                                    val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
-                                    val returnMacroCall = Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + "0" + ")"))))))))
-                                    for (counter <- 1 until ifdefDepth) {
-                                        result = afterStmt :: result
-                                    }
-                                    result ++ List(returnMacroCall)
-                                } else {
-                                    List(Opt(ft, ReturnStatement(Some(expr))))
-                                }
+                    case o@Opt(ft, ReturnStatement(None)) if ifdefDepth > 0 =>
+                        if (isStatementLegal(o.entry)) {
+                            var result: List[Opt[Statement]] = List()
+                            val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
+                            for (counter <- 0 until ifdefDepth) {
+                                result = afterStmt :: result
+                            }
+                            result ++ List(Opt(ft, ReturnStatement(None)))
+                        } else {
+                            List(o)
+                        }
+                    case o@Opt(ft, ReturnStatement(Some(expr))) if ifdefDepth > 0 =>
+                        if (isStatementLegal(o.entry)) {
+                            var result: List[Opt[Statement]] = List()
+                            val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
+                            val returnMacroCall = Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + "0" + ")"))))))))
+                            for (counter <- 1 until ifdefDepth) {
+                                result = afterStmt :: result
+                            }
+                            result ++ List(returnMacroCall)
+                        } else {
+                            List(o)
                         }
                     case o@Opt(ft, ExprStatement(PostfixExpr(Id(name), _))) if name.equals(returnMacroName) && ifdefDepth > 0 =>
-                        var result: List[Opt[Statement]] = List()
-                        val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
-                        for (counter <- 1 until ifdefDepth - forDoWhileIfdefDepth) {
-                            result = afterStmt :: result
+                        if (isStatementLegal(o.entry)) {
+                            var result: List[Opt[Statement]] = List()
+                            val afterStmt = Opt(trueF3, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant("0"))))))))
+                            for (counter <- 1 until ifdefDepth - forDoWhileIfdefDepth) {
+                                result = afterStmt :: result
+                            }
+                            result ++ List(o)
+                        } else {
+                            List(o)
                         }
-                        result ++ List(o)
                     case Opt(ft, cs: ContinueStatement) if ifdefDepth > 0 =>
                         if (isStatementLegal(cs)) {
                             var result: List[Opt[Statement]] = List()
@@ -372,8 +385,6 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         }
         val r = manytd(rule[Statement] {
             case i@IfStatement(cond, One(CompoundStatement(List(Opt(ft, ContinueStatement())))), List(), None) =>
-                //IfStatement(cond, One(CompoundStatement(List(Opt(trueF3, afterStmt), Opt(ft, ContinueStatement())))), List(), None)
-
                 if (isStatementLegal(i)) {
                     IfStatement(cond, One(CompoundStatement(List(Opt(trueF3, afterStmt), Opt(ft, ContinueStatement())))), List(), None)
                 } else {
@@ -381,20 +392,18 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 }
             case CompoundStatement(innerStmts) =>
                 CompoundStatement(innerStmts.flatMap {
-                    case Opt(ft, rs: ReturnStatement) =>
-                        rs.expr match {
-                            case None =>
-                                if (isStatementLegal(rs)) {
-                                    List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
-                                } else {
-                                    List(Opt(ft, ReturnStatement(None)))
-                                }
-                            case Some(expr) =>
-                                if (isStatementLegal(rs)) {
-                                    List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
-                                } else {
-                                    List(Opt(ft, ReturnStatement(Some(expr))))
-                                }
+                    case o@Opt(ft, ReturnStatement(None)) =>
+                        if (isStatementLegal(o.entry)) {
+                            List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
+                        } else {
+                            List(Opt(ft, ReturnStatement(None)))
+                        }
+                        List(Opt(ft, ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))), Opt(ft, ReturnStatement(None)))
+                    case o@Opt(ft, ReturnStatement(Some(expr))) =>
+                        if (isStatementLegal(o.entry)) {
+                            List(Opt(ft, ExprStatement(PostfixExpr(Id(returnMacroName), FunctionCall(ExprList(List(Opt(trueF3, expr), Opt(trueF3, Id(functionAfterName + "(" + numberOfStatements.toString + ")")))))))))
+                        } else {
+                            List(Opt(ft, ReturnStatement(Some(expr))))
                         }
                     case k =>
                         List(k)
@@ -402,28 +411,24 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         })
         last match {
             case Opt(ft, ReturnStatement(_)) =>
-                result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement].innerStatements)
+                if (isStatementLegal(last.entry)) {
+                    result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement].innerStatements)
+                } else {
+                    result = cmpstmt
+                }
             case Opt(ft, ExprStatement(PostfixExpr(Id(name), _))) if name.equals(returnMacroName) =>
-                result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement].innerStatements)
+                if (isStatementLegal(last.entry)) {
+                    result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement].innerStatements)
+                } else {
+                    result = cmpstmt
+                }
             case k =>
                 val newCompound = cmpstmt
-                result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ newCompound.innerStatements ++ List(Opt(trueF3, afterStmt)))
-                /*if (last.entry.isInstanceOf[ReturnStatement]) {
-                    if (isStatementLegal(last.entry)) {
-                        result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement].innerStatements)
-                    } else {
-                        result = cmpstmt
-                    }
+                if (isStatementLegal(cmpstmt.innerStatements.head.entry)) {
+                    result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ newCompound.innerStatements ++ List(Opt(trueF3, afterStmt)))
                 } else {
-                    //val newCompound = r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement]
-                    //val newCompound = alterStatementHelper(cmpstmt)
-                    val newCompound = cmpstmt
-                    if (isStatementLegal(cmpstmt.innerStatements.head.entry)) {
-                        result = CompoundStatement(List(Opt(trueF3, beforeStmt)) ++ newCompound.innerStatements ++ List(Opt(trueF3, afterStmt)))
-                    } else {
-                        result = newCompound
-                    }
-                }*/
+                    result = newCompound
+                }
         }
         print("")
         return result
