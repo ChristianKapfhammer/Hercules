@@ -738,9 +738,10 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
       * Calls the replaceOptAndId function first and then the transformRecursive function on given Product.
      */
     def replaceAndTransform[T <: Product](t: T, feat: FeatureExpr, isTopLevel: Boolean, functionContext: FeatureExpr): T = {
-        val replaced = replaceOptAndId(t, feat, functionContext)
-        updateIgnoredStatements(t, replaced)
-        transformRecursive(replaced, feat, isTopLevel, functionContext)
+        val result = replaceOptAndId(t, feat, functionContext)
+        val result2 = transformRecursive(result, feat, isTopLevel, functionContext)
+        updateIgnoredStatements(result, result2)
+        result2
     }
 
     /**
@@ -1279,12 +1280,18 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
             current match {
                 case Opt(ft, entry) =>
                     if (ft.equivalentTo(trueF, fm) || ft.equivalentTo(feature, fm)) {
-                        Opt(trueF, replaceHelp(entry, feature, functionContext)).asInstanceOf[S]
+                        val replaced = replaceHelp(entry, feature, functionContext)
+                        updateIgnoredStatements(current, replaced)
+                        Opt(trueF, replaced).asInstanceOf[S]
                     } else {
-                        Opt(ft, replaceHelp(entry, feature, functionContext)).asInstanceOf[S]
+                        val replaced = replaceHelp(entry, feature, functionContext)
+                        updateIgnoredStatements(current, replaced)
+                        Opt(ft, replaced).asInstanceOf[S]
                     }
                 case _ =>
-                    replaceHelp(current, feature, functionContext)
+                    val replaced = replaceHelp(current, feature, functionContext)
+                    updateIgnoredStatements(current, replaced)
+                    replaced
             }
         }
     }
