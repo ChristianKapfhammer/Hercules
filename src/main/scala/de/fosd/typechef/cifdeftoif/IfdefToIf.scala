@@ -2070,12 +2070,14 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                         val stmt = statementTuple.find(z => x.implies(z._1).isTautology(fm)).get._2
                         val elsBranch = elseTuple.find(e => x.implies(e._1).isTautology(fm)).getOrElse((currentContext, None.asInstanceOf[Option[Conditional[Statement]]]))._2
                         val featExprDiff = fExprDiff(currentContext, x)
+                        val ifStmt = handleIfStatement(Opt(trueF, IfStatement(
+                            One(replaceOptAndId(cond, x, functionContext)),
+                            One(convertStatementToCompound(replaceAndTransform(stmt, x, false, functionContext))),
+                            replaceOptAndId(elif.filter(y => y.condition.and(x).isSatisfiable(fm)).flatMap(y => handleIfStatement(y, x, functionContext).asInstanceOf[List[Opt[ElifStatement]]]), x, functionContext),
+                            replaceAndTransform(elsBranch, x, false, functionContext))), x, functionContext).asInstanceOf[List[Opt[Statement]]]
+                        updateIgnoredStatements(optIf.entry, ifStmt.head.entry)
                         List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(
-                            handleIfStatement(Opt(trueF, IfStatement(
-                                One(replaceOptAndId(cond, x, functionContext)),
-                                One(convertStatementToCompound(replaceAndTransform(stmt, x, false, functionContext))),
-                                replaceOptAndId(elif.filter(y => y.condition.and(x).isSatisfiable(fm)).flatMap(y => handleIfStatement(y, x, functionContext).asInstanceOf[List[Opt[ElifStatement]]]), x, functionContext),
-                                replaceAndTransform(elsBranch, x, false, functionContext))), x, functionContext).asInstanceOf[List[Opt[Statement]]]), featExprDiff)), List(), None)))
+                            ifStmt), featExprDiff)), List(), None)))
                     })
 
                 // 4. Step
@@ -2160,7 +2162,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
             opt.entry match {
                 case ForStatement(expr1, expr2, expr3, cond) =>
                     val featExprDiff = fExprDiff(currentContext, opt.condition)
-                    List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(handleForStatement(replaceOptAndId(opt, opt.condition, functionContext), opt.condition.and(currentContext), functionContext)), featExprDiff)), List(), None)))
+                    val stmt = handleForStatement(replaceOptAndId(opt, opt.condition, functionContext), opt.condition.and(currentContext), functionContext)
+                    updateIgnoredStatements(opt.entry, stmt)
+                    List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(stmt), featExprDiff)), List(), None)))
                 case _ =>
                     List()
             }
@@ -2172,7 +2176,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     val conditionalTuple = conditionalToList(c, currentContext)
                     conditionalTuple.map(x => {
                         val featExprDiff = fExprDiff(currentContext, x._1)
-                        Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(handleForStatement(Opt(trueF, ForStatement(expr1, expr2, expr3, One(x._2))), x._1, functionContext)), featExprDiff)), List(), None))
+                        var stmt = handleForStatement(Opt(trueF, ForStatement(expr1, expr2, expr3, One(x._2))), x._1, functionContext)
+                        updateIgnoredStatements(opt.entry, stmt)
+                        Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(stmt), featExprDiff)), List(), None))
                     })
 
                 // 3. Step
@@ -2201,11 +2207,17 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
             val featExprDiff = fExprDiff(currentContext, opt.condition)
             opt.entry match {
                 case WhileStatement(expr, cond) =>
-                    List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(handleWSDStatements(replaceOptAndId(opt, opt.condition, functionContext), opt.condition, functionContext)), featExprDiff)), List(), None)))
+                    val stmt = handleWSDStatements(replaceOptAndId(opt, opt.condition, functionContext), opt.condition, functionContext)
+                    updateIgnoredStatements(opt.entry, stmt)
+                    List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(stmt), featExprDiff)), List(), None)))
                 case SwitchStatement(expr, cond) =>
-                    List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(handleWSDStatements(replaceOptAndId(opt, opt.condition, functionContext), opt.condition, functionContext)), featExprDiff)), List(), None)))
+                    val stmt = handleWSDStatements(replaceOptAndId(opt, opt.condition, functionContext), opt.condition, functionContext)
+                    updateIgnoredStatements(opt.entry, stmt)
+                    List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(stmt), featExprDiff)), List(), None)))
                 case DoStatement(expr, cond) =>
-                    List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(handleWSDStatements(replaceOptAndId(opt, opt.condition, functionContext), opt.condition, functionContext)), featExprDiff)), List(), None)))
+                    val stmt = handleWSDStatements(replaceOptAndId(opt, opt.condition, functionContext), opt.condition, functionContext)
+                    updateIgnoredStatements(opt.entry, stmt)
+                    List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(stmt), featExprDiff)), List(), None)))
                 case _ =>
                     List()
             }
@@ -2216,7 +2228,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 case WhileStatement(expr, One(stmt: Statement)) =>
                     val features = computeFExpsForDuplication(expr, currentContext)
                     val newExpr = convertToCondExpr(expr, features, currentContext, functionContext)
-                    List(Opt(trueF, WhileStatement(newExpr, One(transformRecursive(replaceOptAndId(stmt, currentContext, functionContext), currentContext, false, functionContext)))))
+                    val whileStmt = WhileStatement(newExpr, One(transformRecursive(replaceOptAndId(stmt, currentContext, functionContext), currentContext, false, functionContext)))
+                    updateIgnoredStatements(opt.entry, whileStmt)
+                    List(Opt(trueF, whileStmt))
                 case sw@SwitchStatement(expr, One(stmt: Statement)) =>
                     val exprFeatures = computeFExpsForDuplication(expr, currentContext)
                     val newExpr = convertToCondExpr(expr, exprFeatures, currentContext, functionContext)
@@ -2233,40 +2247,49 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     }
                     if (caseFeatures.isEmpty) {
                         if (simpleSwitchTransformation) {
-                            List(Opt(trueF, SwitchStatement(newExpr, One(transformRecursive(replaceOptAndId(handleSwitchCompoundStmt(stmt.asInstanceOf[CompoundStatement], currentContext, expr), currentContext, functionContext), currentContext, false, functionContext)))))
+                            val switchStmt = SwitchStatement(newExpr, One(transformRecursive(replaceOptAndId(handleSwitchCompoundStmt(stmt.asInstanceOf[CompoundStatement], currentContext, expr), currentContext, functionContext), currentContext, false, functionContext)))
+                            updateIgnoredStatements(opt.entry, switchStmt)
+                            List(Opt(trueF, switchStmt))
                         } else {
-                            List(Opt(trueF, SwitchStatement(newExpr, One(transformRecursive(replaceOptAndId(compoundStmt, currentContext, functionContext), currentContext, false, functionContext)))))
+                            val switchStmt = SwitchStatement(newExpr, One(transformRecursive(replaceOptAndId(compoundStmt, currentContext, functionContext), currentContext, false, functionContext)))
+                            updateIgnoredStatements(opt.entry, switchStmt)
+                            List(Opt(trueF, switchStmt))
                         }
                     } else {
                         if (simpleSwitchTransformation) {
                             caseFeatures.map(x => {
                                 val featExprDiff = fExprDiff(currentContext, x)
-                                Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(List(Opt(trueF, SwitchStatement(newExpr, One(transformRecursive(replaceOptAndId(handleSwitchCompoundStmt(replaceOptAndId(stmt.asInstanceOf[CompoundStatement], x, functionContext), currentContext, expr), x, functionContext), x)))))), featExprDiff)), List(), None))
+                                val switchStmt = SwitchStatement(newExpr, One(transformRecursive(replaceOptAndId(handleSwitchCompoundStmt(replaceOptAndId(stmt.asInstanceOf[CompoundStatement], x, functionContext), currentContext, expr), x, functionContext), x)))
+                                updateIgnoredStatements(opt.entry, switchStmt)
+                                Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(List(Opt(trueF, switchStmt))), featExprDiff)), List(), None))
                             })
                         } else {
                             caseFeatures.map(x => {
                                 val featExprDiff = fExprDiff(currentContext, x)
-                                Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(List(Opt(trueF, SwitchStatement(newExpr, One(transformRecursive(replaceOptAndId(compoundStmt, x, functionContext), x)))))), featExprDiff)), List(), None))
+                                val switchStmt = SwitchStatement(newExpr, One(transformRecursive(replaceOptAndId(compoundStmt, x, functionContext), x)))
+                                updateIgnoredStatements(opt.entry, switchStmt)
+                                Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(List(Opt(trueF, switchStmt))), featExprDiff)), List(), None))
                             })
                         }
                     }
                 case DoStatement(expr, One(stmt: Statement)) =>
                     val features = computeFExpsForDuplication(expr, currentContext)
                     val newExpr = convertToCondExpr(expr, features, currentContext, functionContext)
-                    List(Opt(trueF, DoStatement(newExpr, One(transformRecursive(replaceOptAndId(stmt, currentContext, functionContext), currentContext, false, functionContext)))))
+                    val doStmt = DoStatement(newExpr, One(transformRecursive(replaceOptAndId(stmt, currentContext, functionContext), currentContext, false, functionContext)))
+                    updateIgnoredStatements(opt.entry, doStmt)
+                    List(Opt(trueF, doStmt))
 
                 // 2. Step
                 case WhileStatement(expr, c: Conditional[Statement]) =>
                     val conditionalTuple = conditionalToList(c, currentContext)
                     conditionalTuple.map(x => {
                         val featExprDiff = fExprDiff(currentContext, x._1)
+                        val whileStmt = handleWSDStatements(Opt(trueF, WhileStatement(expr, One(x._2))), x._1, functionContext)
+                        updateIgnoredStatements(opt.entry, whileStmt.head.entry)
                         Opt(trueF,
                             IfStatement(
                                 One(toCExpr(featExprDiff)),
-                                One(insertPerfFunctCalls(CompoundStatement(handleWSDStatements(Opt(trueF,
-                                    WhileStatement(
-                                        expr,
-                                        One(x._2))), x._1, functionContext)), featExprDiff)),
+                                One(insertPerfFunctCalls(CompoundStatement(whileStmt), featExprDiff)),
                                 List(),
                                 None))
                     })
@@ -2274,13 +2297,12 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     val conditionalTuple = conditionalToList(c, currentContext)
                     conditionalTuple.map(x => {
                         val featExprDiff = fExprDiff(currentContext, x._1)
+                        val switchStmt = handleWSDStatements(Opt(trueF, SwitchStatement(expr, One(x._2))), x._1, functionContext)
+                        updateIgnoredStatements(opt.entry, switchStmt.head.entry)
                         Opt(trueF,
                             IfStatement(
                                 One(toCExpr(featExprDiff)),
-                                One(insertPerfFunctCalls(CompoundStatement(handleWSDStatements(Opt(trueF,
-                                    SwitchStatement(
-                                        expr,
-                                        One(x._2))), x._1, functionContext)), featExprDiff)),
+                                One(insertPerfFunctCalls(CompoundStatement(switchStmt), featExprDiff)),
                                 List(),
                                 None))
                     })
@@ -2288,13 +2310,12 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     val conditionalTuple = conditionalToList(c, currentContext)
                     conditionalTuple.map(x => {
                         val featExprDiff = fExprDiff(currentContext, x._1)
+                        val doStmt = handleWSDStatements(Opt(trueF, DoStatement(expr, One(x._2))), x._1, functionContext)
+                        updateIgnoredStatements(opt.entry, doStmt.head.entry)
                         Opt(trueF,
                             IfStatement(
                                 One(toCExpr(featExprDiff)),
-                                One(insertPerfFunctCalls(CompoundStatement(handleWSDStatements(Opt(trueF,
-                                    DoStatement(
-                                        expr,
-                                        One(x._2))), x._1, functionContext)), featExprDiff)),
+                                One(insertPerfFunctCalls(CompoundStatement(doStmt), featExprDiff)),
                                 List(),
                                 None))
                     })
