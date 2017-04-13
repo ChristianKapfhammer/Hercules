@@ -61,14 +61,14 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 val statements = blockToStatements(block._1)
 
                 statements.keySet().toArray.foreach({
-                        /*case ExprStatement(AssignExpr(p: PostfixExpr, _, _)) =>
-                            ignoredStatements.put(p, ignored)
-                        case ExprStatement(AssignExpr(_, _, p: PostfixExpr)) =>
-                            ignoredStatements.put(p, ignored)
-                        case ExprStatement(CastExpr(_, e)) =>
-                            ignoredStatements.put(e, ignored)*/
-                        case s: Statement =>
-                            ignoredStatements.put(s, block._2 < threshold)
+                    case i@IfStatement(_, One(CompoundStatement(list)), _, _) =>
+                        ignoredStatements.put(i, block._2 < threshold)
+
+                        if (list.size == 1) {
+                            ignoredStatements.put(list.head.entry, block._2 < threshold)
+                        }
+                    case s: Statement =>
+                        ignoredStatements.put(s, block._2 < threshold)
                     }
                 )
             }
