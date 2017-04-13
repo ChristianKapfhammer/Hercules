@@ -1114,10 +1114,12 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                                         List(Opt(trueF, transformRecursive(cs, newCtx, false, functionContext)))
                                     } else {
                                         val featExprDiff = fExprDiff(curCtx, newCtx)
+                                        val compoundStmt = CompoundStatement(List(Opt(trueF, replaceAndTransform(cs, newCtx, isTopLevel, functionContext))))
+                                        updateIgnoredStatements(cs, compoundStmt)
                                         List(Opt(trueF,
                                             IfStatement(
                                                 One(toCExpr(featExprDiff)),
-                                                One(insertPerfFunctCalls(CompoundStatement(List(Opt(trueF, replaceAndTransform(cs, newCtx, isTopLevel, functionContext)))), featExprDiff)),
+                                                One(insertPerfFunctCalls(compoundStmt, featExprDiff)),
                                                 List(),
                                                 None)))
                                     }
@@ -1281,11 +1283,11 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 case Opt(ft, entry) =>
                     if (ft.equivalentTo(trueF, fm) || ft.equivalentTo(feature, fm)) {
                         val replaced = replaceHelp(entry, feature, functionContext)
-                        updateIgnoredStatements(current, replaced)
+                        updateIgnoredStatements(entry, replaced)
                         Opt(trueF, replaced).asInstanceOf[S]
                     } else {
                         val replaced = replaceHelp(entry, feature, functionContext)
-                        updateIgnoredStatements(current, replaced)
+                        updateIgnoredStatements(entry, replaced)
                         Opt(ft, replaced).asInstanceOf[S]
                     }
                 case _ =>
@@ -1977,7 +1979,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 case IfStatement(cond, thenBranch, elifs, elseBranch) =>
                     val newContext = optIf.condition.and(currentContext)
                     val featExprDiff = fExprDiff(currentContext, optIf.condition)
-                    val result = List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(handleIfStatement(replaceOptAndId(optIf, newContext, functionContext), newContext, functionContext).asInstanceOf[List[Opt[Statement]]]), featExprDiff)), List(), None)))
+                    val stmt = handleIfStatement(replaceOptAndId(optIf, newContext, functionContext), newContext, functionContext).asInstanceOf[List[Opt[Statement]]]
+                    updateIgnoredStatements(optIf.entry, stmt.head.entry)
+                    val result = List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(stmt), featExprDiff)), List(), None)))
                     result
                 case ElifStatement(cond, thenBranch) =>
                     var tmpThenBranch = thenBranch
@@ -1989,7 +1993,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                         case _ =>
                     }
                     //handleIfStatement(Opt(trueF, ElifStatement(cond, tmpThenBranch)), currentContext.and(optIf.condition), functionContext, toCExpr(featExprDiff))
-                    handleIfStatement(Opt(trueF, ElifStatement(cond, thenBranch)), currentContext.and(optIf.condition), functionContext, toCExpr(featExprDiff))
+                    val stmt = ElifStatement(cond, thenBranch)
+                    updateIgnoredStatements(optIf.entry, stmt)
+                    handleIfStatement(Opt(trueF, stmt), currentContext.and(optIf.condition), functionContext, toCExpr(featExprDiff))
                     //List(Opt(trueF, ElifStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(handleIfStatement(replaceOptAndId(Opt(trueF, IfStatement(cond, thenBranch, List(), None)), optIf.condition, functionContext), currentContext.and(optIf.condition), functionContext).asInstanceOf[List[Opt[Statement]]]), featExprDiff)))))
                 case _ =>
                     List()
@@ -2006,15 +2012,16 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     } else {
                         features.flatMap(x => {
                             val featExprDiff = fExprDiff(currentContext, x)
+                            val ifStmt = IfStatement(
+                                One(replaceOptAndId(expr, x, functionContext)),
+                                transformRecursive(replaceOptAndId(One(convertStatementToCompound(stmt)), x, functionContext), x, false, functionContext),
+                                elif.flatMap(y => handleIfStatement(replaceOptAndId(y, x, functionContext), x, functionContext)).asInstanceOf[List[Opt[ElifStatement]]],
+                                transformRecursive(replaceOptAndId(els, x, functionContext), x, false, functionContext))
+                            updateIgnoredStatements(optIf.entry, ifStmt)
                             List(Opt(trueF, IfStatement(
                                 One(toCExpr(featExprDiff)),
-                                One(insertPerfFunctCalls(CompoundStatement(List(Opt(trueF, IfStatement(
-                                    One(replaceOptAndId(expr, x, functionContext)),
-                                    transformRecursive(replaceOptAndId(One(convertStatementToCompound(stmt)), x, functionContext), x, false, functionContext),
-                                    elif.flatMap(y => handleIfStatement(replaceOptAndId(y, x, functionContext), x, functionContext)).asInstanceOf[List[Opt[ElifStatement]]],
-                                    transformRecursive(replaceOptAndId(els, x, functionContext), x, false, functionContext))))), featExprDiff)),
-                                List(),
-                                None)))
+                                One(insertPerfFunctCalls(CompoundStatement(List(Opt(trueF, ifStmt))), featExprDiff)),
+                                List(), None)))
                         })
                     }
 
@@ -2027,11 +2034,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     } else {
                         features.flatMap(x => {
                             val featExprDiff = fExprDiff(currentContext, x)
-                            List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(List(Opt(trueF, IfStatement(
+                            val ifStmt = IfStatement(
                                 One(replaceOptAndId(expr, x, functionContext)),
                                 transformRecursive(replaceOptAndId(One(convertStatementToCompound(stmt)), x, functionContext), x, false, functionContext),
                                 elif.filter(y => y.condition.and(x).isSatisfiable(fm)).flatMap(y => handleIfStatement(replaceOptAndId(y, x, functionContext), x, functionContext)).asInstanceOf[List[Opt[ElifStatement]]],
-                                transformRecursive(replaceOptAndId(els, x, functionContext), x, false, functionContext))))), featExprDiff)), List(), None)))
+                                transformRecursive(replaceOptAndId(els, x, functionContext), x, false, functionContext))
+                            updateIgnoredStatements(optIf.entry, ifStmt)
+                            List(Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(List(Opt(trueF, ifStmt))), featExprDiff)), List(), None)))
                         })
                     }
 

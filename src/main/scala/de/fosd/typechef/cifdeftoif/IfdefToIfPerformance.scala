@@ -84,8 +84,6 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
     private var featurePrefix2 = "f_"
     private var performanceCounter = 0
     private var insertPerformanceCounter = true
-    //private var currentBlockExprCounter: Map[FeatureExpr, (Int, Int)] = Map.empty[FeatureExpr, (Int, Int)]
-    //private var ignoredBlocks: Map[FeatureExpr, Map[Int, (Int, Boolean)]] = Map.empty[FeatureExpr, Map[Int, (Int, Boolean)]]
     private var ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]()
 
     override def setIgnoredStatements(statements: IdentityHashMap[Any, Boolean]): Unit = {
@@ -94,7 +92,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
 
     override def updateIgnoredStatements(old: Any, updated: Any): Unit = {
         if (ignoredStatements.containsKey(old) && !ignoredStatements.containsKey(updated)) {
-            ignoredStatements.remove(old)
+            //ignoredStatements.remove(old)
             ignoredStatements.put(updated, false)
         }
     }
@@ -457,8 +455,8 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         }
         var last = cmpstmt.innerStatements.last
         val r = manytd(rule[Statement] {
-            case CompoundStatement(innerStmts) =>
-                CompoundStatement(innerStmts.flatMap {
+            case compStmt@CompoundStatement(innerStmts) =>
+                val result = CompoundStatement(innerStmts.flatMap {
                     case Opt(ft, ReturnStatement(None)) =>
                         List(Opt(ft, ExprStatement(PostfixExpr(Id(functionEndName), FunctionCall(ExprList(List()))))), Opt(ft, ReturnStatement(None)))
                     case Opt(ft, ReturnStatement(Some(expr))) =>
@@ -466,6 +464,8 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                     case k =>
                         List(k)
                 })
+                updateIgnoredStatements(compStmt, result)
+                result
         })
         val newCmpStmt = r(cmpstmt).getOrElse(cmpstmt).asInstanceOf[CompoundStatement]
         last = newCmpStmt.innerStatements.last
