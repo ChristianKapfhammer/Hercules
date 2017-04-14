@@ -16,7 +16,7 @@ trait IfdefToIfGranularityInterface {
 
 trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IOUtilities {
 
-    class FuncCall(var functionName: String, var condition: FeatureExpr, var weight: Double) {}
+    class FuncCall(var functionName: String, var block: String, var condition: FeatureExpr, var weight: Double) {}
 
     private val DEFAULT_FUNCTION_WEIGHT = 1.0
 
@@ -34,8 +34,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var functionBlocks: Map[String, Set[String]] = Map.empty[String, Set[String]]
     // in which function is the call? -> (what function is called?, which condition?, which weight?)
     private var globalFunctionCalls: Map[String, List[FuncCall]] = Map.empty[String, List[FuncCall]]
-    private val exprToBlock: IdentityHashMap[FeatureExpr, String] = new IdentityHashMap[FeatureExpr, String]()
-    private var blockToExprs: Map[String, IdentityHashMap[FeatureExpr, FeatureExpr]] = Map.empty[String, IdentityHashMap[FeatureExpr, FeatureExpr]]
+    //private val exprToBlock: IdentityHashMap[FeatureExpr, String] = new IdentityHashMap[FeatureExpr, String]()
+    //private var blockToExprs: Map[String, IdentityHashMap[FeatureExpr, FeatureExpr]] = Map.empty[String, IdentityHashMap[FeatureExpr, FeatureExpr]]
+    private var blockToExpr: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
+    private val statementToBlock: IdentityHashMap[Statement, String] = new IdentityHashMap[Statement, String]()
     private var blockToStatements: Map[String, IdentityHashMap[Statement, Statement]] = Map.empty[String, IdentityHashMap[Statement, Statement]]
     private var blockCapsuling: Map[String, Set[String]] = Map.empty[String, Set[String]]
     private var blockScores: Map[String, Double] = Map.empty[String, Double]
@@ -80,7 +82,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     // Global for block mapping calculation
     var currentBlockMapping: Map[FeatureExpr, String] = Map.empty[FeatureExpr, String]
 
-    private def calculateBlockMapping(obj: Any, currentBlocks: Set[FeatureExpr] = Set.empty[FeatureExpr], currentFunction: String = null): Unit = {
+    private def calculateBlockMapping(obj: Any, currentBlock: FeatureExpr = FeatureExprFactory.True, currentFunction: String = null): Unit = {
         obj match {
             case x: AST =>
 
@@ -94,7 +96,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        calculateBlockMapping(y, currentBlocks, function)
+                        calculateBlockMapping(y, currentBlock, function)
                     }
                 }
             case x: Opt[_] =>
@@ -104,11 +106,131 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     // to look at only the important blocks
                     x.entry match {
                         case _: DeclarationStatement =>
-                            calculateBlockMapping(x.entry, currentBlocks, currentFunction)
+                            calculateBlockMapping(x.entry, currentBlock, currentFunction)
                         case s: Statement =>
-                            updateBlockMapping(x.condition)
+                            var cond = currentBlock.&(x.condition)
 
-                            if (x.condition != FeatureExprFactory.True) {
+                            updateBlockMapping(cond, s)
+
+                            if (cond != FeatureExprFactory.True) {
+                                val block = currentBlockMapping(cond)
+
+                                if (blockToStatements.contains(block)) {
+                                    val map = blockToStatements(block)
+                                    map.put(s, s)
+
+                                    blockToStatements -= block
+                                    blockToStatements += (block -> map)
+                                } else {
+                                    val map = new IdentityHashMap[Statement, Statement]()
+                                    map.put(s, s)
+
+                                    blockToStatements += (block -> map)
+                                }
+
+                                if (functionBlocks.contains(currentFunction)) {
+                                    if (!functionBlocks(currentFunction).contains(block)) {
+                                        var funcBlocks = functionBlocks(currentFunction)
+                                        funcBlocks += block
+
+                                        functionBlocks -= currentFunction
+                                        functionBlocks += (currentFunction -> funcBlocks)
+                                    }
+                                } else {
+                                    var funcBlocks = Set.empty[String]
+                                    funcBlocks += block
+
+                                    functionBlocks += (currentFunction -> funcBlocks)
+                                }
+
+                                calculateBlockMapping(x.entry, cond, currentFunction)
+                            } else {
+                                x.entry match {
+                                    case i: IfStatement =>
+                                        i.condition match {
+                                            case c: Choice[_] =>
+                                                cond = cond.&(c.condition)
+                                            case _ =>
+                                        }
+                                    case e: ElifStatement =>
+                                        e.condition match {
+                                            case c: Choice[_] =>
+                                                cond = cond.&(c.condition)
+                                            case _ =>
+                                        }
+                                    case w: WhileStatement =>
+                                        w.s match {
+                                            case c: Choice[_] =>
+                                                cond = cond.&(c.condition)
+                                            case _ =>
+                                        }
+                                    case d: DoStatement =>
+                                        d.s match {
+                                            case c: Choice[_] =>
+                                                cond = cond.&(c.condition)
+                                            case _ =>
+                                        }
+                                    case _ =>
+
+                                }
+                                calculateBlockMapping(x.entry, cond, currentFunction)
+                            }
+                        case e: ElifStatement =>
+                            var cond = currentBlock
+                            e.condition match {
+                                case c: Choice[_] =>
+                                    cond = cond.&(c.condition)
+                                case _ =>
+                            }
+                            calculateBlockMapping(x.entry, cond, currentFunction)
+                        case o =>
+                            calculateBlockMapping(x.entry, currentBlock, currentFunction)
+                    }
+                }
+            case One(x) =>
+                calculateBlockMapping(x, currentBlock, currentFunction)
+            case x: Choice[_] =>
+                calculateBlockMapping(x.thenBranch, currentBlock.&(x.condition), currentFunction)
+                calculateBlockMapping(x.elseBranch, currentBlock.&(x.condition.not()), currentFunction)
+            case x: List[_] =>
+                for (elem <- x) {
+                    calculateBlockMapping(elem, currentBlock, currentFunction)
+                }
+            case Some(x) =>
+                calculateBlockMapping(x, currentBlock, currentFunction)
+            case None =>
+            case o =>
+        }
+        /*obj match {
+            case x: AST =>
+
+                var function = currentFunction
+
+                obj match {
+                    case funcDef: FunctionDef =>
+                        function = funcDef.getName
+                    case o =>
+                }
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        calculateBlockMapping(y, currentBlock, function)
+                    }
+                }
+            case x: Opt[_] =>
+                if (currentFunction != null || x.condition == FeatureExprFactory.True) {
+
+                    // There are no measurement functions for DeclarationStatements in general. We have to filter them
+                    // to look at only the important blocks
+                    x.entry match {
+                        case _: DeclarationStatement =>
+                            calculateBlockMapping(x.entry, currentBlock, currentFunction)
+                        case s: Statement =>
+                            val cond = currentBlock.&(x.condition)
+
+                            updateBlockMapping(cond, s)
+
+                            if (cond != FeatureExprFactory.True) {
                                 val block = currentBlockMapping(x.condition)
 
                                 if (blockToStatements.contains(block)) {
@@ -139,45 +261,40 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                     functionBlocks += (currentFunction -> funcBlocks)
                                 }
 
-                                calculateBlockMapping(x.entry, currentBlocks + x.condition, currentFunction)
+                                calculateBlockMapping(x.entry, cond, currentFunction)
                             } else {
-                                calculateBlockMapping(x.entry, currentBlocks, currentFunction)
+                                calculateBlockMapping(x.entry, currentBlock, currentFunction)
                             }
                         case o =>
-                            calculateBlockMapping(x.entry, currentBlocks, currentFunction)
+                            calculateBlockMapping(x.entry, currentBlock, currentFunction)
                     }
                 }
             case One(x) =>
-                calculateBlockMapping(x, currentBlocks, currentFunction)
+                calculateBlockMapping(x, currentBlock, currentFunction)
             case x: Choice[_] =>
-                updateBlockMapping(x.condition)
-                calculateBlockMapping(x.thenBranch, currentBlocks + x.condition, currentFunction)
-
-                updateBlockMapping(x.condition.not())
-                calculateBlockMapping(x.elseBranch, currentBlocks + x.condition.not(), currentFunction)
+                calculateBlockMapping(x.thenBranch, currentBlock.&(x.condition), currentFunction)
+                calculateBlockMapping(x.elseBranch, currentBlock.&(x.condition.not()), currentFunction)
             case x: List[_] =>
                 for (elem <- x) {
-                    calculateBlockMapping(elem, currentBlocks, currentFunction)
+                    calculateBlockMapping(elem, currentBlock, currentFunction)
                 }
             case Some(x) =>
-                calculateBlockMapping(x, currentBlocks, currentFunction)
+                calculateBlockMapping(x, currentBlock, currentFunction)
             case None =>
             case o =>
-        }
+        }*/
     }
 
     private def createBlockName(expr: FeatureExpr): String = {
-        val blockName = expr.toString() + "_"
         var id = 0
-
-        while(blockToExprs.contains(blockName + id)) {
-            id += 1
+        if(featureCounter.contains(expr)) {
+            id = featureCounter(expr)
         }
 
-        blockName + id
+        expr.toString() + "_" + id
     }
 
-    private def updateBlockMapping(currentExpr: FeatureExpr): Unit = {
+    private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
         if (currentExpr == FeatureExprFactory.True) {
             currentBlockMapping = Map.empty[FeatureExpr, String]
         } else {
@@ -196,12 +313,15 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
 
             if (!currentBlockMapping.contains(currentExpr)) {
-                currentBlockMapping += (currentExpr -> createBlockName(currentExpr))
+                val newBlock = createBlockName(currentExpr)
+                currentBlockMapping += (currentExpr -> newBlock)
+                blockToExpr += (newBlock -> currentExpr)
             }
 
             val currBlock = currentBlockMapping(currentExpr)
 
-            exprToBlock.put(currentExpr, currBlock)
+            //exprToBlock.put(currentExpr, currBlock)
+            statementToBlock.put(stmt, currBlock)
 
             // Update blockCapsuling
             for(key <- currentBlockMapping.keySet.filter(p => p != currentExpr)) {
@@ -223,8 +343,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            // Update block numbering and feature counter
-            if (keysToRemove.nonEmpty || !blockToExprs.contains(currBlock)) {
+            // Update feature counter
+            if (keysToRemove.nonEmpty || !blockToStatements.contains(currBlock)) {
                 var ftCounter = 0
 
                 if (featureCounter.contains(currentExpr)) {
@@ -237,7 +357,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
 
             // Update block mapping
-            if (blockToExprs.contains(currBlock)) {
+            /*if (blockToExprs.contains(currBlock)) {
                 val map = blockToExprs(currBlock)
                 map.put(currentExpr, null)
 
@@ -248,7 +368,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 map.put(currentExpr, null)
 
                 blockToExprs += (currBlock -> map)
-            }
+            }*/
         }
     }
 
@@ -343,8 +463,116 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    private def granularity(obj: Any, currentBlocks: Set[FeatureExpr] = Set.empty[FeatureExpr], currentFunction: String = null, weight: Double = 1.0): Unit = {
+    private def granularity(obj: Any, currentBlocks: Set[String] = Set.empty[String], currentFunction: String = null, weight: Double = 1.0): Unit = {
         obj match {
+            case x: ForStatement =>
+                val currentLoop: Int = loopCounter
+                var blocks: Set[String] = currentBlocks
+
+                if (statementToBlock.containsKey(x)) {
+                    blocks = blocks + statementToBlock.get(x)
+                }
+
+                loopCounter += 1
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop))
+                    }
+                }
+            case x: WhileStatement =>
+                val currentLoop: Int = loopCounter
+                var blocks: Set[String] = currentBlocks
+
+                if (statementToBlock.containsKey(x)) {
+                    blocks = blocks + statementToBlock.get(x)
+                }
+
+                loopCounter += 1
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop))
+                    }
+                }
+            case x: DoStatement =>
+                val currentLoop: Int = loopCounter
+                var blocks: Set[String] = currentBlocks
+
+                if (statementToBlock.containsKey(x)) {
+                    blocks = blocks + statementToBlock.get(x)
+                }
+
+                loopCounter += 1
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop))
+                    }
+                }
+
+            case x: AST =>
+
+                var functionDef = currentFunction
+                var blocks = currentBlocks
+
+                obj match {
+                    case funcDef: FunctionDef =>
+                        functionDef = funcDef.getName
+                        functionDefs = functionDefs + functionDef
+                    case funcCall: PostfixExpr =>
+                        var funcName: String = null
+
+                        funcCall.p match {
+                            case i: Id =>
+                                funcName = i.name
+                            case _ =>
+                        }
+
+                        if (funcName != null) {
+                            funcCall.s match {
+                                case t: FunctionCall =>
+                                    for (block <- currentBlocks) {
+                                        val tuple = new FuncCall(funcName, block, blockToExpr(block), weight)
+                                        if (globalFunctionCalls.contains(currentFunction)) {
+                                            val list = globalFunctionCalls(currentFunction)
+
+                                            globalFunctionCalls -= currentFunction
+                                            globalFunctionCalls += (currentFunction -> (list ::: List(tuple)))
+                                        } else {
+                                            globalFunctionCalls += (currentFunction -> List(tuple))
+                                        }
+                                    }
+                                case _ =>
+                            }
+                        }
+                    case s: Statement =>
+                        if (statementToBlock.containsKey(s)) {
+                            blocks = blocks + statementToBlock.get(s)
+                        }
+                        increaseScore(currentBlocks, currentFunction, weight)
+                    case _ =>
+                }
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        granularity(y, blocks, functionDef, weight)
+                    }
+                }
+            case x: Opt[_] =>
+                granularity(x.entry, currentBlocks, currentFunction, weight)
+            case x: List[_] =>
+                for (elem <- x) {
+                    granularity(elem, currentBlocks, currentFunction, weight)
+                }
+            case Some(x) =>
+                granularity(x, currentBlocks, currentFunction, weight)
+            case x: One[_] =>
+                granularity(x.value, currentBlocks, currentFunction, weight)
+            case x: Choice[_] =>
+                granularity(x.thenBranch, currentBlocks, currentFunction, weight)
+                granularity(x.elseBranch, currentBlocks, currentFunction, weight)
+            case None =>
+            case o =>
+        }
+        /*obj match {
             case x: ForStatement =>
                 val currentLoop: Int = loopCounter
                 loopCounter += 1
@@ -429,15 +657,14 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 granularity(x.elseBranch, currentBlocks + x.condition.not(), currentFunction, weight)
             case None =>
             case o =>
-        }
+        }*/
     }
 
-    private def increaseScore(currentBlocks: Set[FeatureExpr], currentFunction: String, weight: Double): Unit = {
-        // Update loc of blocks
-        for (key <- currentBlocks) {
-            if (key != FeatureExprFactory.True && exprToBlock.containsKey(key) && currentFunction != null) {
-                val block = exprToBlock.get(key)
+    private def increaseScore(currentBlocks: Set[String], currentFunction: String, weight: Double): Unit = {
+        if (currentFunction != null) {
 
+            // Update loc of blocks
+            for (block <- currentBlocks) {
                 if (blockScores.contains(block)) {
                     val w = blockScores(block)
 
@@ -447,11 +674,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     blockScores += (block -> weight)
                 }
             }
-        }
 
-        // Update score of functions (True only)
-        if (currentFunction != null) {
-            if (currentBlocks.size == 1 && currentBlocks.head == FeatureExprFactory.True) {
+            // Update score of functions (True only)
+            if (currentBlocks.isEmpty) {
                 if (functionScores.contains(currentFunction)) {
                     val score = functionScores(currentFunction)
 
@@ -485,8 +710,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     }
 
     private def calculateFunctionScores(): Unit = {
-        //TODO: Prüfen, ob die Werte richtig berechnet werden
-
         for (func <- functionDefs) {
             var sum: Double = 0.0
 
@@ -497,7 +720,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             if (functionBlocks.contains(func)) {
                 for (block <- functionBlocks(func)) {
                     if (blockScores.contains(block))
-                    sum += blockScores(block)
+                        sum += blockScores(block)
                 }
             }
 
@@ -505,7 +728,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 functionScores -= func
             }
 
-            functionScores += (func -> (sum))
+            functionScores += (func -> sum)
         }
 
         // Setting scores for functions which are not defined in this AST
@@ -632,6 +855,19 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         // Add function call costs to the corresponding blocks
         for (value <- globalFunctionCalls.values) {
             for (call <- value) {
+                if (blockScores.contains(call.block)) {
+                    val w = blockScores(call.block)
+
+                    blockScores -= call.block
+                    blockScores += (call.block -> (w + getCallValue(call, FeatureExprFactory.True)))
+                } else {
+                    blockScores += (call.block -> getCallValue(call, FeatureExprFactory.True))
+                }
+            }
+        }
+
+        /*for (value <- globalFunctionCalls.values) {
+            for (call <- value) {
                 if (call.condition != FeatureExprFactory.True) {
                     val block = exprToBlock.get(call.condition)
 
@@ -645,7 +881,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
             }
-        }
+        }*/
     }
 
 }
