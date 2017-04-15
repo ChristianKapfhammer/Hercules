@@ -325,11 +325,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
             case x: BreakStatement =>
-                val score = loopScores(currentLoop) * BREAK_WEIGHT
-                loopScores -= currentLoop
-                loopExited -= currentLoop
-                loopScores += (currentLoop -> score)
-                loopExited += (currentLoop -> true)
+                if (currentLoop != null.asInstanceOf[Int]) {
+                    val score = loopScores(currentLoop) * BREAK_WEIGHT
+                    loopScores -= currentLoop
+                    loopExited -= currentLoop
+                    loopScores += (currentLoop -> score)
+                    loopExited += (currentLoop -> true)
+                }
             case x: ContinueStatement =>
                 val score = loopScores(currentLoop) * CONTINUE_WEIGHT
                 loopScores -= currentLoop
