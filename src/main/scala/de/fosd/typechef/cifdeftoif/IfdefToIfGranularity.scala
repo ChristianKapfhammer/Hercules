@@ -110,6 +110,35 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         case s: Statement =>
                             var cond = currentBlock.&(x.condition)
 
+                            x.entry match {
+                                case i: IfStatement =>
+                                    i.condition match {
+                                        case c: Choice[_] =>
+                                            cond = cond.&(c.condition)
+                                        case _ =>
+                                    }
+                                case e: ElifStatement => // ElifStatement is no Statement (?!?)
+                                    e.condition match {
+                                        case c: Choice[_] =>
+                                            cond = cond.&(c.condition)
+                                        case _ =>
+                                    }
+                                case w: WhileStatement =>
+                                    w.s match {
+                                        case c: Choice[_] =>
+                                            cond = cond.&(c.condition)
+                                        case _ =>
+                                    }
+                                case d: DoStatement =>
+                                    d.s match {
+                                        case c: Choice[_] =>
+                                            cond = cond.&(c.condition)
+                                        case _ =>
+                                    }
+                                case _ =>
+
+                            }
+
                             updateBlockMapping(cond, s)
 
                             if (cond != FeatureExprFactory.True) {
@@ -145,34 +174,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                                 calculateBlockMapping(x.entry, cond, currentFunction)
                             } else {
-                                x.entry match {
-                                    case i: IfStatement =>
-                                        i.condition match {
-                                            case c: Choice[_] =>
-                                                cond = cond.&(c.condition)
-                                            case _ =>
-                                        }
-                                    case e: ElifStatement =>
-                                        e.condition match {
-                                            case c: Choice[_] =>
-                                                cond = cond.&(c.condition)
-                                            case _ =>
-                                        }
-                                    case w: WhileStatement =>
-                                        w.s match {
-                                            case c: Choice[_] =>
-                                                cond = cond.&(c.condition)
-                                            case _ =>
-                                        }
-                                    case d: DoStatement =>
-                                        d.s match {
-                                            case c: Choice[_] =>
-                                                cond = cond.&(c.condition)
-                                            case _ =>
-                                        }
-                                    case _ =>
-
-                                }
                                 calculateBlockMapping(x.entry, cond, currentFunction)
                             }
                         case e: ElifStatement =>
