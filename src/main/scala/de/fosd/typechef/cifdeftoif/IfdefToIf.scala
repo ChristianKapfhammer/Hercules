@@ -2176,7 +2176,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     val conditionalTuple = conditionalToList(c, currentContext)
                     conditionalTuple.map(x => {
                         val featExprDiff = fExprDiff(currentContext, x._1)
-                        var stmt = handleForStatement(Opt(trueF, ForStatement(expr1, expr2, expr3, One(x._2))), x._1, functionContext)
+                        val stmt = handleForStatement(Opt(trueF, ForStatement(expr1, expr2, expr3, One(x._2))), x._1, functionContext)
                         updateIgnoredStatements(opt.entry, stmt)
                         Opt(trueF, IfStatement(One(toCExpr(featExprDiff)), One(insertPerfFunctCalls(CompoundStatement(stmt), featExprDiff)), List(), None))
                     })
@@ -2189,7 +2189,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                     val newExpr2 = convertToCondExpr(expr2, features2, currentContext, functionContext)
                     val features3 = computeFExpsForDuplication(expr3.getOrElse(EmptyStatement()), currentContext)
                     val newExpr3 = convertToCondExpr(expr3, features3, currentContext, functionContext)
-                    List(Opt(trueF, ForStatement(newExpr1, newExpr2, newExpr3, One(transformRecursive(replaceOptAndId(stmt, currentContext, functionContext), currentContext, false, functionContext)))))
+                    val forStmt = ForStatement(newExpr1, newExpr2, newExpr3, One(transformRecursive(replaceOptAndId(stmt, currentContext, functionContext), currentContext, false, functionContext)))
+                    updateIgnoredStatements(opt.entry, forStmt)
+                    List(Opt(trueF, forStmt))
 
                 case k =>
                     println("Pattern fail " + k)
