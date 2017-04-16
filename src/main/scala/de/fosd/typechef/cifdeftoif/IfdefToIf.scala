@@ -1042,7 +1042,9 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                                         fExps.map(x => Opt(trueF, statementToIf(replaceAndTransform(r, x, isTopLevel, functionContext), x, curCtx, functionContext)))
                                     } else {
                                         if (ft.equals(trueF)) {
-                                            List(transformRecursive(o, curCtx, false, functionContext))
+                                            val result = List(transformRecursive(o, curCtx, false, functionContext))
+                                            updateIgnoredStatements(r, result.head.entry)
+                                            result
                                         } else {
                                             List(Opt(trueF, statementToIf(replaceAndTransform(r, newCtx, isTopLevel, functionContext), newCtx, curCtx, functionContext)))
                                         }

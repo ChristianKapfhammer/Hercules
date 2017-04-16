@@ -569,7 +569,9 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                             }
                             resultList ++ List(o)
                         case k: Opt[_] =>
-                            List(fixLabelAndGotosHelper(k, currentIfdefs))
+                            val result = fixLabelAndGotosHelper(k, currentIfdefs)
+                            updateIgnoredStatements(k.entry, result.entry)
+                            List(result)
                         case _ =>
                             List()
                     })
