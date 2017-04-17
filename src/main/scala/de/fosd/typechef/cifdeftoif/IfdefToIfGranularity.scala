@@ -454,7 +454,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         if (statementToBlock.containsKey(s)) {
                             blocks = blocks + statementToBlock.get(s)
                         }
-                        increaseScore(currentBlocks, currentFunction, weight)
+                        increaseScore(blocks, currentFunction, weight)
                     case _ =>
                 }
 
