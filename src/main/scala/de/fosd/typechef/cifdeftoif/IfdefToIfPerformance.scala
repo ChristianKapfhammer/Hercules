@@ -96,18 +96,37 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 updateIgnoredStatements(o1, o2)
             case c@(CompoundStatement(c1), CompoundStatement(c2)) =>
                 updateIgnoredStatements(c1, c2)
-            case l@(List(_), List(_)) =>
-                val l1 = l._1.asInstanceOf[List[_]]
-                val l2 = l._2.asInstanceOf[List[_]]
-                if(l1.size == l2.size) {
-                    for (i <- l1.indices) {
-                        updateIgnoredStatements(l1.get(i), l2.get(i))
-                    }
-                }
             case o@(Opt(_, o1), Opt(_, o2)) =>
                 updateIgnoredStatements(o1, o2)
             case s@(Some(s1), Some(s2)) =>
                 updateIgnoredStatements(s1, s2)
+            case _ =>
+        }
+
+        old match {
+            case x: AST =>
+                updated match {
+                    case y: AST =>
+                        if (x.productArity > 0 && y.productArity > 0
+                            && x.productIterator.toList.size == y.productIterator.toList.size) {
+                            val l1 = x.productIterator.toList
+                            val l2 = y.productIterator.toList
+                            for (i <- x.productIterator.toList.indices) {
+                                updateIgnoredStatements(l1.get(i), l2.get(i))
+                            }
+                        }
+                    case _ =>
+                }
+            case x: List[_] =>
+                updated match {
+                    case y: List[_] =>
+                        if (x.size == y.size) {
+                            for (i <- x.indices) {
+                                updateIgnoredStatements(x.get(i), y.get(i))
+                            }
+                        }
+                    case _ =>
+                }
             case _ =>
         }
 
