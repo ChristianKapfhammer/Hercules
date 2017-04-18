@@ -91,42 +91,30 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
     }
 
     override def updateIgnoredStatements(old: Any, updated: Any): Unit = {
+        (old, updated) match {
+            case o@(One(o1), One(o2)) =>
+                updateIgnoredStatements(o1, o2)
+            case c@(CompoundStatement(c1), CompoundStatement(c2)) =>
+                updateIgnoredStatements(c1, c2)
+            case l@(List(_), List(_)) =>
+                val l1 = l._1.asInstanceOf[List[_]]
+                val l2 = l._2.asInstanceOf[List[_]]
+                if(l1.size == l2.size) {
+                    for (i <- l1.indices) {
+                        updateIgnoredStatements(l1.get(i), l2.get(i))
+                    }
+                }
+            case o@(Opt(_, o1), Opt(_, o2)) =>
+                updateIgnoredStatements(o1, o2)
+            case s@(Some(s1), Some(s2)) =>
+                updateIgnoredStatements(s1, s2)
+            case _ =>
+        }
+
         if (ignoredStatements.containsKey(old) && !ignoredStatements.containsKey(updated)) {
             //ignoredStatements.remove(old)
             ignoredStatements.put(updated, false)
         }
-    }
-
-    private def getASTElements(obj: Any, currentList: IdentityHashMap[Any, Any]): IdentityHashMap[Any, Any] = {
-        var list = currentList
-
-        obj match {
-            case x: AST =>
-                list.put(x, x)
-
-                if (x.productArity > 0) {
-                    for (y <- x.productIterator.toList) {
-                        list = getASTElements(y, list)
-                    }
-                }
-            case x: Opt[_] =>
-                list = getASTElements(x.entry, list)
-            case One(x) =>
-                list = getASTElements(x, list)
-            case x: Choice[_] =>
-                list = getASTElements(x.thenBranch, list)
-                list = getASTElements(x.elseBranch, list)
-            case x: List[_] =>
-                for (elem <- x) {
-                    list = getASTElements(elem, list)
-                }
-            case Some(x) =>
-                list = getASTElements(x, list)
-            case None =>
-            case o =>
-        }
-
-        list
     }
 
     private def isStatementLegal(s: Statement): Boolean = {
