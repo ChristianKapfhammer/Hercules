@@ -1,5 +1,6 @@
 package de.fosd.typechef.cifdeftoif
 
+import java.io.{File, PrintWriter}
 import java.util
 import java.util.IdentityHashMap
 
@@ -71,13 +72,28 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         }
                     case s: Statement =>
                         ignoredStatements.put(s, block._2 < threshold)
-                    }
-                )
+                })
             }
         })
 
+        writeDataFile()
+
         ignoredStatements
     }
+
+    private def writeDataFile(): Unit = {
+        val pw = new PrintWriter(new File("data.txt"))
+
+        var string = ""
+
+        for ((k, v) <- blockScores) {
+            string = string + v.toString + "\n"
+        }
+
+        pw.write(string)
+        pw.close()
+    }
+
 
     // Global for block mapping calculation
     var currentBlockMapping: Map[FeatureExpr, String] = Map.empty[FeatureExpr, String]
