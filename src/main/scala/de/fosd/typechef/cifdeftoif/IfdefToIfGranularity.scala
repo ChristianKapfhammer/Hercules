@@ -11,8 +11,9 @@ import de.fosd.typechef.parser.c._
 trait IfdefToIfGranularityInterface {
 
     protected var featureModel: FeatureModel = _
+    protected var dir: String = ""
 
-    def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int): IdentityHashMap[Any, Boolean]
+    def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int): IdentityHashMap[Any, Boolean]
 }
 
 trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IOUtilities {
@@ -45,10 +46,11 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     private var loopCounter: Int = 0
 
-    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, threshold: Int = 2): IdentityHashMap[Any, Boolean] = {
+    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int = 2): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
 
         featureModel = fm
+        dir = outputDir
 
         // Order is important, blockMapping -> loopScores -> generalGranularity -> blocks -> functions -> function calls
         calculateBlockMapping(ast)
@@ -82,7 +84,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     }
 
     private def writeDataFile(): Unit = {
-        val pw = new PrintWriter(new File("data.csv"))
+        val pw = new PrintWriter(new File(dir + "data.csv"))
 
         var map: Map[Int, Int] = Map.empty[Int, Int]
         var string = ""

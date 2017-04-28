@@ -187,8 +187,9 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                                 println("calculation for granularity by executed code lines started")
 
                                 val granularity = new IfdefToIfGranularity with IfdefToIfGranularityExecCode
+                                val lastSepIndex = opt.getOutputStem().lastIndexOf(System.getProperty("file.separator"))
 
-                                i.setIgnoredStatements(granularity.calculateGranularity(ast, fullFM, opt.getGToption))
+                                i.setIgnoredStatements(granularity.calculateGranularity(ast, fullFM, opt.getOutputStem().substring(0, lastSepIndex+1), opt.getGToption))
                             }
 
                             stopWatch.start("ifdeftoif")
