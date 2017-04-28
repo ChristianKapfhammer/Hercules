@@ -82,12 +82,26 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     }
 
     private def writeDataFile(): Unit = {
-        val pw = new PrintWriter(new File("data.txt"))
+        val pw = new PrintWriter(new File("data.csv"))
 
-        var string = ""
+        var map: Map[Int, Int] = Map.empty[Int, Int]
+        var string = "x,y\n"
+        val interval = 5
 
         for ((k, v) <- blockScores) {
-            string = string + v.toString + "\n"
+            val divide = (v/interval).floor.toInt
+
+            if (map.contains(divide)) {
+                val counter = map(divide)
+                map -= divide
+                map += (divide -> (counter+1))
+            } else {
+                map += (divide -> 1)
+            }
+        }
+
+        for ((k, v) <- map) {
+            string = string + k.toString() + "," + v.toString() + "\n"
         }
 
         pw.write(string)
