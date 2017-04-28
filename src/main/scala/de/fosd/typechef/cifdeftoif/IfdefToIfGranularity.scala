@@ -85,7 +85,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         val pw = new PrintWriter(new File("data.csv"))
 
         var map: Map[Int, Int] = Map.empty[Int, Int]
-        var string = "x,y\n"
+        var string = ""
         val interval = 5
 
         for ((k, v) <- blockScores) {
