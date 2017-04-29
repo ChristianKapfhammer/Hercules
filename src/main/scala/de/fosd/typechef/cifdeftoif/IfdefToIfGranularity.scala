@@ -20,7 +20,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
     class FuncCall(var functionName: String, var block: String, var condition: FeatureExpr, var weight: Double) {}
 
-    private val DEFAULT_FUNCTION_WEIGHT = 1.0
+    /*private val DEFAULT_FUNCTION_WEIGHT = 1.0
 
     private val FOR_WEIGHT: Double = 3.0
     private val WHILE_WEIGHT: Double = 3.0
@@ -28,7 +28,17 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private val BREAK_WEIGHT: Double = 0.4
     private val CONTINUE_WEIGHT: Double = 0.8
     private val GOTO_WEIGHT: Double = 0.2
-    private val RECURSIVE_WEIGHT: Double = 3.0
+    private val RECURSIVE_WEIGHT: Double = 3.0*/
+
+    private val DEFAULT_FUNCTION_WEIGHT = 1.0
+
+    private val FOR_WEIGHT: Double = 1.0
+    private val WHILE_WEIGHT: Double = 1.0
+    private val DO_WEIGHT: Double = 1.0
+    private val BREAK_WEIGHT: Double = 1.0
+    private val CONTINUE_WEIGHT: Double = 1.0
+    private val GOTO_WEIGHT: Double = 1.0
+    private val RECURSIVE_WEIGHT: Double = 1.0
 
     private var loopScores: Map[Int, Double] = Map.empty[Int, Double]
     private var functionDefs: Set[String] = Set.empty[String]
