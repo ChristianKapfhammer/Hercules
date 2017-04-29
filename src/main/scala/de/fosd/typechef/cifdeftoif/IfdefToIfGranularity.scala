@@ -8,6 +8,8 @@ import de.fosd.typechef.conditional.{Choice, One, Opt}
 import de.fosd.typechef.featureexpr._
 import de.fosd.typechef.parser.c._
 
+import scala.io.Source
+
 trait IfdefToIfGranularityInterface {
 
     protected var featureModel: FeatureModel = _
@@ -30,15 +32,15 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private val GOTO_WEIGHT: Double = 0.2
     private val RECURSIVE_WEIGHT: Double = 3.0*/
 
-    private val DEFAULT_FUNCTION_WEIGHT = 1.0
+    private var DEFAULT_FUNCTION_WEIGHT = 1.0
 
-    private val FOR_WEIGHT: Double = 1.0
-    private val WHILE_WEIGHT: Double = 1.0
-    private val DO_WEIGHT: Double = 1.0
-    private val BREAK_WEIGHT: Double = 1.0
-    private val CONTINUE_WEIGHT: Double = 1.0
-    private val GOTO_WEIGHT: Double = 1.0
-    private val RECURSIVE_WEIGHT: Double = 1.0
+    private var FOR_WEIGHT: Double = 1.0
+    private var WHILE_WEIGHT: Double = 1.0
+    private var DO_WEIGHT: Double = 1.0
+    private var BREAK_WEIGHT: Double = 1.0
+    private var CONTINUE_WEIGHT: Double = 1.0
+    private var GOTO_WEIGHT: Double = 1.0
+    private var RECURSIVE_WEIGHT: Double = 1.0
 
     private var loopScores: Map[Int, Double] = Map.empty[Int, Double]
     private var functionDefs: Set[String] = Set.empty[String]
@@ -61,6 +63,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         featureModel = fm
         dir = outputDir
+        readConfigFile()
 
         // Order is important, blockMapping -> loopScores -> generalGranularity -> blocks -> functions -> function calls
         calculateBlockMapping(ast)
@@ -91,6 +94,35 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeDataFile()
 
         ignoredStatements
+    }
+
+    private def readConfigFile(): Unit = {
+
+        for (c <- Source.fromFile("granularity_config.txt").getLines()) {
+            val configParts = c.split("=")
+
+            if (configParts.size == 2) {
+                configParts(0) match {
+                    case "for_weight" =>
+                        FOR_WEIGHT = configParts(1).toDouble
+                    case "while_weight" =>
+                        WHILE_WEIGHT = configParts(1).toDouble
+                    case "do_weight" =>
+                        DO_WEIGHT = configParts(1).toDouble
+                    case "break_weight" =>
+                        BREAK_WEIGHT = configParts(1).toDouble
+                    case "continue_weight" =>
+                        CONTINUE_WEIGHT = configParts(1).toDouble
+                    case "goto_weight" =>
+                        GOTO_WEIGHT = configParts(1).toDouble
+                    case "recursive_weight" =>
+                        RECURSIVE_WEIGHT = configParts(1).toDouble
+                    case "default_function_value" =>
+                        DEFAULT_FUNCTION_WEIGHT = configParts(1).toDouble
+                    case _ =>
+                }
+            }
+        }
     }
 
     private def writeDataFile(): Unit = {
