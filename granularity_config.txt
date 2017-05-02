@@ -6,3 +6,4 @@ continue_weight=2.0
 goto_weight=4.0
 recursive_weight=5.0
 default_function_value=5.0
+function_accumulation=true

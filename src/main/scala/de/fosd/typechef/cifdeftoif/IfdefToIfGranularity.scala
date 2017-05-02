@@ -42,6 +42,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var GOTO_WEIGHT: Double = 1.0
     private var RECURSIVE_WEIGHT: Double = 1.0
 
+    private var FUNCTION_ACCUMULATION: Boolean = true
+
     private var loopScores: Map[Int, Double] = Map.empty[Int, Double]
     private var functionDefs: Set[String] = Set.empty[String]
     private var functionScores: Map[String, Double] = Map.empty[String, Double]
@@ -119,6 +121,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         RECURSIVE_WEIGHT = configParts(1).toDouble
                     case "default_function_value" =>
                         DEFAULT_FUNCTION_WEIGHT = configParts(1).toDouble
+                    case "function_accumulation" =>
+                        FUNCTION_ACCUMULATION = configParts(1).toBoolean
                     case _ =>
                 }
             }
@@ -681,69 +685,76 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private def careFunctionCalls(): Unit = {
 
         var functionRecSets: Set[Set[String]] = Set.empty[Set[String]]
-
-        for ((funcLocation, funcCalls) <- globalFunctionCalls) {
-            for (call <- funcCalls) {
-                getRecSet(call) match {
-                    case Some(x) =>
-                        functionRecSets += x._1
-                    case None =>
-                }
-            }
-        }
-
-        // Calculate the general value for each function in a recursion set
         var recValues: Map[String, List[Double]] = Map.empty[String, List[Double]]
-
-        for (recSet <- functionRecSets) {
-            var value: Double = 0
-
-            for (func <- recSet) {
-                value += functionScores(func)
-            }
-
-            for (func <- recSet) {
-                if (recValues.contains(func)) {
-                    val list = recValues(func)
-
-                    recValues -= func
-                    recValues += (func -> (list ::: List(value)))
-                } else {
-                    recValues += (func -> List(value))
-                }
-            }
-        }
-
         var recSetValue: Map[String, Double] = Map.empty[String, Double]
 
-        for (entry <- recValues) {
-            var value: Double = 0
+        if (FUNCTION_ACCUMULATION) {
 
-            for (v <- entry._2) {
-                value += v
+
+            for ((funcLocation, funcCalls) <- globalFunctionCalls) {
+                for (call <- funcCalls) {
+                    getRecSet(call) match {
+                        case Some(x) =>
+                            functionRecSets += x._1
+                        case None =>
+                    }
+                }
             }
 
-            recSetValue += (entry._1 -> (value/entry._2.length))
+            // Calculate the general value for each function in a recursion set
+            for (recSet <- functionRecSets) {
+                var value: Double = 0
+
+                for (func <- recSet) {
+                    value += functionScores(func)
+                }
+
+                for (func <- recSet) {
+                    if (recValues.contains(func)) {
+                        val list = recValues(func)
+
+                        recValues -= func
+                        recValues += (func -> (list ::: List(value)))
+                    } else {
+                        recValues += (func -> List(value))
+                    }
+                }
+            }
+
+            // Calculate the value of of each recursion set
+            for (entry <- recValues) {
+                var value: Double = 0
+
+                for (v <- entry._2) {
+                    value += v
+                }
+
+                recSetValue += (entry._1 -> (value / entry._2.length))
+            }
         }
 
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
-            if (recSetValue.contains(call.functionName)) {
-                RECURSIVE_WEIGHT * recSetValue(call.functionName)
-            } else {
-                if (call.condition.and(cond).isSatisfiable(featureModel)) {
-                    var sum = functionScores(call.functionName)
-
-                    if (globalFunctionCalls.contains(call.functionName)) {
-                        for (furtherCall <- globalFunctionCalls(call.functionName)) {
-                            sum += getCallValue(furtherCall, cond.and(call.condition))
-                        }
-                    }
-
-                    sum
+            if (FUNCTION_ACCUMULATION) {
+                if (recSetValue.contains(call.functionName)) {
+                    RECURSIVE_WEIGHT * recSetValue(call.functionName)
                 } else {
-                    0
+                    if (call.condition.and(cond).isSatisfiable(featureModel)) {
+                        var sum = functionScores(call.functionName)
+
+                        if (globalFunctionCalls.contains(call.functionName)) {
+                            for (furtherCall <- globalFunctionCalls(call.functionName)) {
+                                sum += getCallValue(furtherCall, cond.and(call.condition))
+                            }
+                        }
+
+                        sum
+                    } else {
+                        0
+                    }
                 }
+            } else {
+                functionScores(call.functionName)
             }
         }
 
