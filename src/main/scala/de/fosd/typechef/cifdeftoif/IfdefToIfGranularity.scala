@@ -154,6 +154,17 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         pw.write(string)
         pw.close()
+
+        val pw2 = new PrintWriter(new File(dir + "data_map.csv"))
+
+        string = ""
+
+        for ((k, v) <- blockScores) {
+            string = string + k.toString() + " -> " + v.toString() + "\n"
+        }
+
+        pw2.write(string)
+        pw2.close()
     }
 
 
@@ -689,7 +700,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         var recSetValue: Map[String, Double] = Map.empty[String, Double]
 
         if (FUNCTION_ACCUMULATION) {
-
 
             for ((funcLocation, funcCalls) <- globalFunctionCalls) {
                 for (call <- funcCalls) {
