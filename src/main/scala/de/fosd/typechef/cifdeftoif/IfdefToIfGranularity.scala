@@ -158,8 +158,22 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         val pw2 = new PrintWriter(new File(dir + "data_map.csv"))
 
         string = ""
+        var map2 = Map.empty[Int, List[String]]
 
         for ((k, v) <- blockScores) {
+            val divide = (v/interval).floor.toInt
+
+            if (map2.contains(divide)) {
+                val list = map2(divide)
+                map2 -= divide
+                map2 += (divide -> (list + k))
+            } else {
+                val list = List(k)
+                map2 += (divide -> (list))
+            }
+        }
+
+        for ((k, v) <- map2) {
             string = string + k.toString() + " -> " + v.toString() + "\n"
         }
 
