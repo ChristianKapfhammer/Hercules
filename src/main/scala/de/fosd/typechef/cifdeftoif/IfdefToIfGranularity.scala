@@ -155,7 +155,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         pw.write(string)
         pw.close()
 
-        val pw2 = new PrintWriter(new File(dir + "data_map.csv"))
+        val pw2 = new PrintWriter(new File(dir + "map.txt"))
 
         string = ""
         var map2 = Map.empty[Int, List[String]]
@@ -166,7 +166,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             if (map2.contains(divide)) {
                 val list = map2(divide)
                 map2 -= divide
-                map2 += (divide -> (list + k))
+                map2 += (divide -> (list ::: List(k)))
             } else {
                 val list = List(k)
                 map2 += (divide -> (list))
