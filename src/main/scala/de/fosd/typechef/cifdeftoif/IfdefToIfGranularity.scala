@@ -94,6 +94,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         })
 
         writeDataFile()
+        writeMapFile()
 
         ignoredStatements
     }
@@ -154,10 +155,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         pw.write(string)
         pw.close()
+    }
 
+    private def writeMapFile(): Unit = {
         val pw2 = new PrintWriter(new File(dir + "map.txt"))
 
-        string = ""
+        var string = ""
+        val interval = 5
         var map2 = Map.empty[Int, List[String]]
 
         for ((k, v) <- blockScores) {
