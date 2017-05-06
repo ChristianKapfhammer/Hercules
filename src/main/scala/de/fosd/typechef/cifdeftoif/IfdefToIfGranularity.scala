@@ -160,8 +160,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private def writeMapFile(): Unit = {
         val pw2 = new PrintWriter(new File(dir + "map.txt"))
 
-        println("Printing Map")
-
         var string = ""
         val interval = 5
         var map2 = Map.empty[Int, List[String]]
@@ -182,12 +180,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         for ((k, v) <- map2) {
             string = string + k.toString() + " -> " + v.toString() + "\n"
         }
-
-        println("Map:")
-        println(map2)
-
-        println("String:")
-        println(string)
 
         pw2.write(string)
         pw2.close()
@@ -569,7 +561,11 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         if (statementToBlock.containsKey(s)) {
                             blocks = blocks + statementToBlock.get(s)
                         }
-                        increaseScore(blocks, currentFunction, weight)
+                        obj match {
+                            case _: CompoundStatement | _:DeclarationStatement | _: EmptyStatement => // Filtering statements that should not be counted
+                            case _ =>
+                                increaseScore(blocks, currentFunction, weight)
+                        }
                     case _ =>
                 }
 
