@@ -485,6 +485,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 if (statementToBlock.containsKey(x)) {
                     blocks = blocks + statementToBlock.get(x)
+
+                    for (block <- blocks) {
+                        if (!blockScores.contains(block)) {
+                            blockScores += (block -> 0)
+                        }
+                    }
                 }
 
                 loopCounter += 1
@@ -499,6 +505,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 if (statementToBlock.containsKey(x)) {
                     blocks = blocks + statementToBlock.get(x)
+
+                    for (block <- blocks) {
+                        if (!blockScores.contains(block)) {
+                            blockScores += (block -> 0)
+                        }
+                    }
                 }
 
                 loopCounter += 1
@@ -513,6 +525,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 if (statementToBlock.containsKey(x)) {
                     blocks = blocks + statementToBlock.get(x)
+
+                    for (block <- blocks) {
+                        if (!blockScores.contains(block)) {
+                            blockScores += (block -> 0)
+                        }
+                    }
                 }
 
                 loopCounter += 1
@@ -560,6 +578,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     case s: Statement =>
                         if (statementToBlock.containsKey(s)) {
                             blocks = blocks + statementToBlock.get(s)
+
+                            for (block <- blocks) {
+                                if (!blockScores.contains(block)) {
+                                    blockScores += (block -> 0)
+                                }
+                            }
                         }
                         obj match {
                             case _: CompoundStatement | _:DeclarationStatement | _: EmptyStatement => // Filtering statements that should not be counted
