@@ -32,6 +32,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private val GOTO_WEIGHT: Double = 0.2
     private val RECURSIVE_WEIGHT: Double = 3.0*/
 
+    private var BUCKET_SIZE: Int = 5
     private var DEFAULT_FUNCTION_WEIGHT = 1.0
 
     private var FOR_WEIGHT: Double = 1.0
@@ -124,6 +125,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         DEFAULT_FUNCTION_WEIGHT = configParts(1).toDouble
                     case "function_accumulation" =>
                         FUNCTION_ACCUMULATION = configParts(1).toBoolean
+                    case "bucket_size" =>
+                        BUCKET_SIZE = configParts(1).toInt
                     case _ =>
                 }
             }
@@ -135,10 +138,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         var map: Map[Int, Int] = Map.empty[Int, Int]
         var string = ""
-        val interval = 5
 
         for ((k, v) <- blockScores) {
-            val divide = (v/interval).floor.toInt
+            val divide = (v/BUCKET_SIZE).floor.toInt
 
             if (map.contains(divide)) {
                 val counter = map(divide)
@@ -156,35 +158,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         pw.write(string)
         pw.close()
     }
-
-    private def writeMapFile(): Unit = {
-        val pw2 = new PrintWriter(new File(dir + "map.txt"))
-
-        var string = ""
-        val interval = 5
-        var map2 = Map.empty[Int, List[String]]
-
-        for ((k, v) <- blockScores) {
-            val divide = (v/interval).floor.toInt
-
-            if (map2.contains(divide)) {
-                val list = map2(divide)
-                map2 -= divide
-                map2 += (divide -> (list ::: List(k)))
-            } else {
-                val list = List(k)
-                map2 += (divide -> (list))
-            }
-        }
-
-        for ((k, v) <- map2) {
-            string = string + k.toString() + " -> " + v.toString() + "\n"
-        }
-
-        pw2.write(string)
-        pw2.close()
-    }
-
 
     // Global for block mapping calculation
     var currentBlockMapping: Map[FeatureExpr, String] = Map.empty[FeatureExpr, String]
