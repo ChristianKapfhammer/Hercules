@@ -465,6 +465,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
+                increaseScore(blocks, currentFunction, weight * loopScores(currentLoop))
+
                 loopCounter += 1
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
@@ -485,6 +487,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
+                increaseScore(blocks, currentFunction, weight * loopScores(currentLoop))
+
                 loopCounter += 1
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
@@ -504,6 +508,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         }
                     }
                 }
+
+                increaseScore(blocks, currentFunction, weight * loopScores(currentLoop))
 
                 loopCounter += 1
                 if (x.productArity > 0) {
