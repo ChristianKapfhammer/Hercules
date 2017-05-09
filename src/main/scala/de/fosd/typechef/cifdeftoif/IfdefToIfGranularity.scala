@@ -95,7 +95,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         })
 
         writeDataFile()
-        writeMapFile()
 
         ignoredStatements
     }
