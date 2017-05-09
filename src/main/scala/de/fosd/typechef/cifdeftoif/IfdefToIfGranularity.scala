@@ -62,12 +62,19 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     private var loopCounter: Int = 0
 
+    private var additionCounter: Int = 0
+    private var multiplicationCounter: Int = 0
+
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int = 2): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
 
         featureModel = fm
         dir = outputDir
         readConfigFile()
+
+        codeAnalysis(ast)
+        println("Counted additions: " + additionCounter)
+        println("Counted multiplications: " + multiplicationCounter)
 
         // Order is important, blockMapping -> loopScores -> generalGranularity -> blocks -> functions -> function calls
         calculateBlockMapping(ast)
@@ -159,6 +166,36 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         pw.write(string)
         pw.close()
+    }
+
+    private def codeAnalysis(obj: Any): Unit = {
+        obj match {
+            case "+" | "++" | "+=" | "=+" =>
+                additionCounter = additionCounter + 1
+            case "*" | "*=" | "=*" =>
+                multiplicationCounter = multiplicationCounter + 1
+            case x: AST =>
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        codeAnalysis(y)
+                    }
+                }
+            case x: Opt[_] =>
+                codeAnalysis(x.entry)
+            case One(x) =>
+                codeAnalysis(x)
+            case x: Choice[_] =>
+                codeAnalysis(x.thenBranch)
+                codeAnalysis(x.elseBranch)
+            case x: List[_] =>
+                for (elem <- x) {
+                    codeAnalysis(elem)
+                }
+            case Some(x) =>
+                codeAnalysis(x)
+            case None =>
+            case _ =>
+        }
     }
 
     // Global for block mapping calculation
