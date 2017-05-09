@@ -44,6 +44,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var RECURSIVE_WEIGHT: Double = 1.0
 
     private var FUNCTION_ACCUMULATION: Boolean = true
+    private var FUNCTION_CALL_WEIGHT: Double = 1.0
 
     private var loopScores: Map[Int, Double] = Map.empty[Int, Double]
     private var functionDefs: Set[String] = Set.empty[String]
@@ -124,6 +125,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         DEFAULT_FUNCTION_WEIGHT = configParts(1).toDouble
                     case "function_accumulation" =>
                         FUNCTION_ACCUMULATION = configParts(1).toBoolean
+                    case "function_call_weight" =>
+                        FUNCTION_CALL_WEIGHT = configParts(1).toDouble
                     case "bucket_size" =>
                         BUCKET_SIZE = configParts(1).toInt
                     case _ =>
@@ -799,9 +802,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     val w = blockScores(call.block)
 
                     blockScores -= call.block
-                    blockScores += (call.block -> (w + getCallValue(call, FeatureExprFactory.True)))
+                    blockScores += (call.block -> (w + FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True)))
                 } else {
-                    blockScores += (call.block -> getCallValue(call, FeatureExprFactory.True))
+                    blockScores += (call.block -> FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True))
                 }
             }
         }
