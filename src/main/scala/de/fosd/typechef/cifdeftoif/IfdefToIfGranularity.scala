@@ -62,8 +62,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     private var loopCounter: Int = 0
 
-    private var additionCounter: Int = 0
-    private var multiplicationCounter: Int = 0
+    private var additionGeneralCounter: Int = 0
+    private var multiplicationGeneralCounter: Int = 0
+    private var additionBlockCounter: Int = 0
+    private var multiplicationBlockCounter: Int = 0
 
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int = 2): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
@@ -73,8 +75,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         readConfigFile()
 
         codeAnalysis(ast)
-        println("Counted additions: " + additionCounter)
-        println("Counted multiplications: " + multiplicationCounter)
+        println("Counted additions in general: " + additionGeneralCounter)
+        println("Counted multiplications in general: " + multiplicationGeneralCounter)
+        println("Counted additions in blocks: " + additionBlockCounter)
+        println("Counted multiplications in blocks: " + multiplicationBlockCounter)
 
         // Order is important, blockMapping -> loopScores -> generalGranularity -> blocks -> functions -> function calls
         calculateBlockMapping(ast)
@@ -168,31 +172,39 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         pw.close()
     }
 
-    private def codeAnalysis(obj: Any): Unit = {
+    private def codeAnalysis(obj: Any, currentBlock: FeatureExpr = FeatureExprFactory.True): Unit = {
         obj match {
             case "+" | "++" | "+=" | "=+" =>
-                additionCounter = additionCounter + 1
+                additionGeneralCounter = additionGeneralCounter + 1
+
+                if (currentBlock != FeatureExprFactory.True) {
+                    additionBlockCounter = additionBlockCounter + 1
+                }
             case "*" | "*=" | "=*" =>
-                multiplicationCounter = multiplicationCounter + 1
+                multiplicationGeneralCounter = multiplicationGeneralCounter + 1
+
+                if (currentBlock != FeatureExprFactory.True) {
+                    multiplicationBlockCounter = multiplicationBlockCounter + 1
+                }
             case x: AST =>
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        codeAnalysis(y)
+                        codeAnalysis(y, currentBlock)
                     }
                 }
             case x: Opt[_] =>
-                codeAnalysis(x.entry)
+                codeAnalysis(x.entry, x.condition)
             case One(x) =>
-                codeAnalysis(x)
+                codeAnalysis(x, currentBlock)
             case x: Choice[_] =>
-                codeAnalysis(x.thenBranch)
-                codeAnalysis(x.elseBranch)
+                codeAnalysis(x.thenBranch, x.condition)
+                codeAnalysis(x.elseBranch, x.condition.not())
             case x: List[_] =>
                 for (elem <- x) {
-                    codeAnalysis(elem)
+                    codeAnalysis(elem, currentBlock)
                 }
             case Some(x) =>
-                codeAnalysis(x)
+                codeAnalysis(x, currentBlock)
             case None =>
             case _ =>
         }
