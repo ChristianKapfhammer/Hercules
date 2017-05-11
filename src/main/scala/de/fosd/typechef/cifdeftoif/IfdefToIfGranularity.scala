@@ -178,9 +178,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         var string = ""
 
-        string += "Addition," + additionGeneralCounter + "," + additionBlockCounter
-        string += "Subtraction," + subtractionGeneralCounter + "," + subtractionBlockCounter
-        string += "Multiplication," + multiplicationGeneralCounter + "," + multiplicationBlockCounter
+        string += "Addition," + additionGeneralCounter + "," + additionBlockCounter + "\n"
+        string += "Subtraction," + subtractionGeneralCounter + "," + subtractionBlockCounter + "\n"
+        string += "Multiplication," + multiplicationGeneralCounter + "," + multiplicationBlockCounter + "\n"
         string += "Division," + divisionGeneralCounter + "," + divisionBlockCounter
 
         pw.write(string)
