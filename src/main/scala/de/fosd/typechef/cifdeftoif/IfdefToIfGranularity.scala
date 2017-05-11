@@ -63,9 +63,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var loopCounter: Int = 0
 
     private var additionGeneralCounter: Int = 0
+    private var subtractionGeneralCounter: Int = 0
     private var multiplicationGeneralCounter: Int = 0
+    private var divisionGeneralCounter: Int = 0
     private var additionBlockCounter: Int = 0
+    private var subtractionBlockCounter: Int = 0
     private var multiplicationBlockCounter: Int = 0
+    private var divisionBlockCounter: Int = 0
 
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int = 2): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
@@ -76,9 +80,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         codeAnalysis(ast)
         println("Counted additions in general: " + additionGeneralCounter)
+        println("Counted subtractions in general: " + subtractionGeneralCounter)
         println("Counted multiplications in general: " + multiplicationGeneralCounter)
+        println("Counted divisions in general: " + divisionGeneralCounter)
         println("Counted additions in blocks: " + additionBlockCounter)
+        println("Counted subtractions in blocks: " + subtractionBlockCounter)
         println("Counted multiplications in blocks: " + multiplicationBlockCounter)
+        println("Counted divisions in blocks: " + divisionBlockCounter)
 
         // Order is important, blockMapping -> loopScores -> generalGranularity -> blocks -> functions -> function calls
         calculateBlockMapping(ast)
@@ -175,16 +183,28 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private def codeAnalysis(obj: Any, currentBlock: FeatureExpr = FeatureExprFactory.True): Unit = {
         obj match {
             case "+" | "++" | "+=" | "=+" =>
-                additionGeneralCounter = additionGeneralCounter + 1
+                additionGeneralCounter += + 1
 
                 if (currentBlock != FeatureExprFactory.True) {
-                    additionBlockCounter = additionBlockCounter + 1
+                    additionBlockCounter += 1
+                }
+            case "-" | "--" | "-=" | "=-" =>
+                subtractionGeneralCounter += 1
+
+                if (currentBlock != FeatureExprFactory.True) {
+                    subtractionBlockCounter += 1
                 }
             case "*" | "*=" | "=*" =>
-                multiplicationGeneralCounter = multiplicationGeneralCounter + 1
+                multiplicationGeneralCounter += 1
 
                 if (currentBlock != FeatureExprFactory.True) {
-                    multiplicationBlockCounter = multiplicationBlockCounter + 1
+                    multiplicationBlockCounter += 1
+                }
+            case "/" | "/=" | "=/" =>
+                divisionGeneralCounter += 1
+
+                if (currentBlock != FeatureExprFactory.True) {
+                    divisionBlockCounter += 1
                 }
             case x: AST =>
                 if (x.productArity > 0) {
