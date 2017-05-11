@@ -79,14 +79,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         readConfigFile()
 
         codeAnalysis(ast)
-        println("Counted additions in general: " + additionGeneralCounter)
-        println("Counted subtractions in general: " + subtractionGeneralCounter)
-        println("Counted multiplications in general: " + multiplicationGeneralCounter)
-        println("Counted divisions in general: " + divisionGeneralCounter)
-        println("Counted additions in blocks: " + additionBlockCounter)
-        println("Counted subtractions in blocks: " + subtractionBlockCounter)
-        println("Counted multiplications in blocks: " + multiplicationBlockCounter)
-        println("Counted divisions in blocks: " + divisionBlockCounter)
 
         // Order is important, blockMapping -> loopScores -> generalGranularity -> blocks -> functions -> function calls
         calculateBlockMapping(ast)
@@ -115,6 +107,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         })
 
         writeDataFile()
+        writeOperatorFile()
 
         ignoredStatements
     }
@@ -175,6 +168,20 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         for ((k, v) <- map) {
             string = string + k.toString() + "," + v.toString() + "\n"
         }
+
+        pw.write(string)
+        pw.close()
+    }
+
+    private def writeOperatorFile(): Unit = {
+        val pw = new PrintWriter(new File(dir + "operators.csv"))
+
+        var string = ""
+
+        string += "Addition," + additionGeneralCounter + "," + additionBlockCounter
+        string += "Subtraction," + subtractionGeneralCounter + "," + subtractionBlockCounter
+        string += "Multiplication," + multiplicationGeneralCounter + "," + multiplicationBlockCounter
+        string += "Division," + divisionGeneralCounter + "," + divisionBlockCounter
 
         pw.write(string)
         pw.close()
