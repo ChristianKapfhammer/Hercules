@@ -181,7 +181,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         string += "Addition," + additionGeneralCounter + "," + additionBlockCounter + "\n"
         string += "Subtraction," + subtractionGeneralCounter + "," + subtractionBlockCounter + "\n"
         string += "Multiplication," + multiplicationGeneralCounter + "," + multiplicationBlockCounter + "\n"
-        string += "Division," + divisionGeneralCounter + "," + divisionBlockCounter
+        string += "Division," + divisionGeneralCounter + "," + divisionBlockCounter + "\n"
 
         pw.write(string)
         pw.close()
