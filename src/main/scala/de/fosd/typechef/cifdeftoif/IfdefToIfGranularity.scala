@@ -643,7 +643,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                             }
                         }
                         obj match {
-                            case _: EmptyStatement => // Filtering statements that should not be counted
+                            case _: EmptyStatement | _: BreakStatement | _: ContinueStatement | _: GotoStatement => // Filtering statements that should not be counted
                             case _ =>
                                 increaseScore(blocks, currentFunction, weight)
                         }
