@@ -12,8 +12,13 @@ import scala.io.Source
 
 trait IfdefToIfGranularityInterface {
 
+    protected var statementMapping: IdentityHashMap[Any, Int] = new IdentityHashMap[Any, Int]()
     protected var featureModel: FeatureModel = _
     protected var dir: String = ""
+
+    def getStatementMapping(): IdentityHashMap[Any, Int] = {
+        statementMapping
+    }
 
     def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int): IdentityHashMap[Any, Boolean]
 }
@@ -399,6 +404,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             //exprToBlock.put(currentExpr, currBlock)
             statementToBlock.put(stmt, currBlock)
+
+            // Update statementMapping
+            val blockNameParts = currBlock.split("_")
+            statementMapping.put(stmt, blockNameParts(blockNameParts.size - 1).toInt)
 
             // Update blockCapsuling
             for(key <- currentBlockMapping.keySet.filter(p => p != currentExpr)) {

@@ -61,6 +61,10 @@ trait IfdefToIfPerformanceInterface {
         // Nothing
     }
 
+    def setStatementMapping(statements: IdentityHashMap[Any, Int]) = {
+        // Nothing
+    }
+
     def updateIgnoredStatements(old: Any, updated: Any) = {
         // Nothing
     }
@@ -85,56 +89,63 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
     private var performanceCounter = 0
     private var insertPerformanceCounter = true
     private var ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]()
+    private var statementMapping: IdentityHashMap[Any, Int] = new IdentityHashMap[Any, Int]()
 
     override def setIgnoredStatements(statements: IdentityHashMap[Any, Boolean]): Unit = {
         ignoredStatements = statements
     }
 
+    override def setStatementMapping(statements: IdentityHashMap[Any, Int]): Unit = {
+        statementMapping = statements
+    }
+
     override def updateIgnoredStatements(old: Any, updated: Any): Unit = {
-        if (!ignoredStatements.isEmpty) {
-            (old, updated) match {
-                case o@(One(o1), One(o2)) =>
-                    updateIgnoredStatements(o1, o2)
-                case c@(CompoundStatement(c1), CompoundStatement(c2)) =>
-                    updateIgnoredStatements(c1, c2)
-                case o@(Opt(_, o1), Opt(_, o2)) =>
-                    updateIgnoredStatements(o1, o2)
-                case s@(Some(s1), Some(s2)) =>
-                    updateIgnoredStatements(s1, s2)
-                case _ =>
-            }
+        (old, updated) match {
+            case o@(One(o1), One(o2)) =>
+                updateIgnoredStatements(o1, o2)
+            case c@(CompoundStatement(c1), CompoundStatement(c2)) =>
+                updateIgnoredStatements(c1, c2)
+            case o@(Opt(_, o1), Opt(_, o2)) =>
+                updateIgnoredStatements(o1, o2)
+            case s@(Some(s1), Some(s2)) =>
+                updateIgnoredStatements(s1, s2)
+            case _ =>
+        }
 
-            old match {
-                case x: AST =>
-                    updated match {
-                        case y: AST =>
-                            if (x.productArity > 0 && y.productArity > 0
-                                && x.productIterator.toList.size == y.productIterator.toList.size) {
-                                val l1 = x.productIterator.toList
-                                val l2 = y.productIterator.toList
-                                for (i <- x.productIterator.toList.indices) {
-                                    updateIgnoredStatements(l1.get(i), l2.get(i))
-                                }
+        old match {
+            case x: AST =>
+                updated match {
+                    case y: AST =>
+                        if (x.productArity > 0 && y.productArity > 0
+                            && x.productIterator.toList.size == y.productIterator.toList.size) {
+                            val l1 = x.productIterator.toList
+                            val l2 = y.productIterator.toList
+                            for (i <- x.productIterator.toList.indices) {
+                                updateIgnoredStatements(l1.get(i), l2.get(i))
                             }
-                        case _ =>
-                    }
-                case x: List[_] =>
-                    updated match {
-                        case y: List[_] =>
-                            if (x.size == y.size) {
-                                for (i <- x.indices) {
-                                    updateIgnoredStatements(x.get(i), y.get(i))
-                                }
+                        }
+                    case _ =>
+                }
+            case x: List[_] =>
+                updated match {
+                    case y: List[_] =>
+                        if (x.size == y.size) {
+                            for (i <- x.indices) {
+                                updateIgnoredStatements(x.get(i), y.get(i))
                             }
-                        case _ =>
-                    }
-                case _ =>
-            }
+                        }
+                    case _ =>
+                }
+            case _ =>
+        }
 
-            if (ignoredStatements.containsKey(old) && !ignoredStatements.containsKey(updated)) {
-                //ignoredStatements.remove(old)
-                ignoredStatements.put(updated, false)
-            }
+        if (statementMapping.containsKey(old) && !statementMapping.containsKey(updated)) {
+            statementMapping.put(updated, statementMapping.get(old))
+        }
+
+        if (ignoredStatements.containsKey(old) && !ignoredStatements.containsKey(updated)) {
+            //ignoredStatements.remove(old)
+            ignoredStatements.put(updated, false)
         }
     }
 
@@ -358,8 +369,24 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         if (insertPerformanceCounter) {
             functionName = functionBeforeCounterName
         }
-        val beforeStmt = ExprStatement(PostfixExpr(Id(functionName), FunctionCall(ExprList(List(Opt(trueF3, StringLit(List(Opt(trueF3, "\"" ++ contextToReadableString(context) ++ "\"")))))))))
+
         val last = cmpstmt.innerStatements.last
+        var contextString = contextToReadableString(context)
+
+        last match {
+            case Opt(ft, ReturnStatement(_)) =>
+                contextString = contextString + "_" + statementMapping.get(last.entry)
+            case Opt(ft, ExprStatement(PostfixExpr(Id(name), _))) if name.equals(returnMacroName) =>
+                contextString = contextString + "_" + statementMapping.get(last.entry)
+            case k =>
+                contextString = contextString + "_" + statementMapping.get(cmpstmt.innerStatements.head.entry)
+        }
+
+        if (contextString.endsWith("null")) {
+            contextString = contextString.substring(0, contextString.length-5)
+        }
+
+        val beforeStmt = ExprStatement(PostfixExpr(Id(functionName), FunctionCall(ExprList(List(Opt(trueF3, StringLit(List(Opt(trueF3, "\"" ++ contextString ++ "\"")))))))))
         val afterStmt = ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))
 
         def alterStatementHelper[T <: Product](t: T, continueExitsContext: Boolean = true): T = {
