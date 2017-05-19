@@ -12,11 +12,11 @@ import scala.io.Source
 
 trait IfdefToIfGranularityInterface {
 
-    protected var statementMapping: IdentityHashMap[Any, Int] = new IdentityHashMap[Any, Int]()
+    protected var statementMapping: IdentityHashMap[Any, String] = new IdentityHashMap[Any, String]()
     protected var featureModel: FeatureModel = _
     protected var dir: String = ""
 
-    def getStatementMapping(): IdentityHashMap[Any, Int] = {
+    def getStatementMapping(): IdentityHashMap[Any, String] = {
         statementMapping
     }
 
@@ -296,9 +296,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                     i.condition match {
                                         case c: Choice[_] =>
                                             cond = cond.&(c.condition)
-                                        case o: One[NAryExpr] =>
+                                        case One(n: NAryExpr) =>
                                             var optFound = false
-                                            for (i <- o.value.others
+                                            for (i <- n.others
                                                     if !optFound) {
                                                 if (i.condition != FeatureExprFactory.True) {
                                                     cond = cond.&(i.condition)
@@ -311,9 +311,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                     e.condition match {
                                         case c: Choice[_] =>
                                             cond = cond.&(c.condition)
-                                        case o: One[NAryExpr] =>
+                                        case One(n: NAryExpr) =>
                                             var optFound = false
-                                            for (i <- o.value.others
+                                            for (i <- n.others
                                                  if !optFound) {
                                                 if (i.condition != FeatureExprFactory.True) {
                                                     cond = cond.&(i.condition)
@@ -326,9 +326,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                     w.s match {
                                         case c: Choice[_] =>
                                             cond = cond.&(c.condition)
-                                        case o: One[NAryExpr] =>
+                                        case One(n: NAryExpr) =>
                                             var optFound = false
-                                            for (i <- o.value.others
+                                            for (i <- n.others
                                                  if !optFound) {
                                                 if (i.condition != FeatureExprFactory.True) {
                                                     cond = cond.&(i.condition)
@@ -341,9 +341,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                     d.s match {
                                         case c: Choice[_] =>
                                             cond = cond.&(c.condition)
-                                        case o: One[NAryExpr] =>
+                                        case One(n: NAryExpr) =>
                                             var optFound = false
-                                            for (i <- o.value.others
+                                            for (i <- n.others
                                                  if !optFound) {
                                                 if (i.condition != FeatureExprFactory.True) {
                                                     cond = cond.&(i.condition)
@@ -422,12 +422,14 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     }
 
     private def createBlockName(expr: FeatureExpr): String = {
-        var id = 0
+        /*var id = 0
         if(featureCounter.contains(expr)) {
             id = featureCounter(expr)
         }
 
-        expr.toString() + "_" + id
+        */
+
+        expr.toString() + "_" + java.util.UUID.randomUUID.toString
     }
 
     private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
@@ -461,7 +463,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             // Update statementMapping
             val blockNameParts = currBlock.split("_")
-            statementMapping.put(stmt, blockNameParts(blockNameParts.size - 1).toInt)
+            statementMapping.put(stmt, blockNameParts(blockNameParts.size - 1))
 
             // Update blockCapsuling
             for(key <- currentBlockMapping.keySet.filter(p => p != currentExpr)) {

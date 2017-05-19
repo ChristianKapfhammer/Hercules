@@ -61,7 +61,7 @@ trait IfdefToIfPerformanceInterface {
         // Nothing
     }
 
-    def setStatementMapping(statements: IdentityHashMap[Any, Int]) = {
+    def setStatementMapping(statements: IdentityHashMap[Any, String]) = {
         // Nothing
     }
 
@@ -89,13 +89,13 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
     private var performanceCounter = 0
     private var insertPerformanceCounter = true
     private var ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]()
-    private var statementMapping: IdentityHashMap[Any, Int] = new IdentityHashMap[Any, Int]()
+    private var statementMapping: IdentityHashMap[Any, String] = new IdentityHashMap[Any, String]()
 
     override def setIgnoredStatements(statements: IdentityHashMap[Any, Boolean]): Unit = {
         ignoredStatements = statements
     }
 
-    override def setStatementMapping(statements: IdentityHashMap[Any, Int]): Unit = {
+    override def setStatementMapping(statements: IdentityHashMap[Any, String]): Unit = {
         statementMapping = statements
     }
 
