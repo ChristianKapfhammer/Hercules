@@ -265,6 +265,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 var function = currentFunction
 
+                if (function == null) {
+                    currentBlockMapping = Map.empty[FeatureExpr, String]
+                }
+
                 obj match {
                     case funcDef: FunctionDef =>
                         function = funcDef.getName
