@@ -292,24 +292,60 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                     i.condition match {
                                         case c: Choice[_] =>
                                             cond = cond.&(c.condition)
+                                        case o: One[NAryExpr] =>
+                                            var optFound = false
+                                            for (i <- o.value.others
+                                                    if !optFound) {
+                                                if (i.condition != FeatureExprFactory.True) {
+                                                    cond = cond.&(i.condition)
+                                                    optFound = true
+                                                }
+                                            }
                                         case _ =>
                                     }
                                 case e: ElifStatement => // ElifStatement is no Statement (?!?)
                                     e.condition match {
                                         case c: Choice[_] =>
                                             cond = cond.&(c.condition)
+                                        case o: One[NAryExpr] =>
+                                            var optFound = false
+                                            for (i <- o.value.others
+                                                 if !optFound) {
+                                                if (i.condition != FeatureExprFactory.True) {
+                                                    cond = cond.&(i.condition)
+                                                    optFound = true
+                                                }
+                                            }
                                         case _ =>
                                     }
                                 case w: WhileStatement =>
                                     w.s match {
                                         case c: Choice[_] =>
                                             cond = cond.&(c.condition)
+                                        case o: One[NAryExpr] =>
+                                            var optFound = false
+                                            for (i <- o.value.others
+                                                 if !optFound) {
+                                                if (i.condition != FeatureExprFactory.True) {
+                                                    cond = cond.&(i.condition)
+                                                    optFound = true
+                                                }
+                                            }
                                         case _ =>
                                     }
                                 case d: DoStatement =>
                                     d.s match {
                                         case c: Choice[_] =>
                                             cond = cond.&(c.condition)
+                                        case o: One[NAryExpr] =>
+                                            var optFound = false
+                                            for (i <- o.value.others
+                                                 if !optFound) {
+                                                if (i.condition != FeatureExprFactory.True) {
+                                                    cond = cond.&(i.condition)
+                                                    optFound = true
+                                                }
+                                            }
                                         case _ =>
                                     }
                                 case _ =>
