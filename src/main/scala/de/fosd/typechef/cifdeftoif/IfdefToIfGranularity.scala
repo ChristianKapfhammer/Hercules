@@ -185,7 +185,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         var string = ""
 
         for ((k, v) <- blockScores) {
-            string = string + k.toString + "," + v.toString + "\n"
+            val id = k.split("_").last
+
+            string = string + id + "," + k.substring(0, k.length-id.length-1) + "," + v.toString + "\n"
         }
 
         pw.write(string)

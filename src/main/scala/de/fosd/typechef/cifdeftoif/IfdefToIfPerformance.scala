@@ -372,18 +372,19 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
 
         val last = cmpstmt.innerStatements.last
         var contextString = contextToReadableString(context)
+        var id = ""
 
         last match {
             case Opt(ft, ReturnStatement(_)) =>
-                contextString = contextString + "_" + statementMapping.get(last.entry)
+                id = statementMapping.get(last.entry)
             case Opt(ft, ExprStatement(PostfixExpr(Id(name), _))) if name.equals(returnMacroName) =>
-                contextString = contextString + "_" + statementMapping.get(last.entry)
+                id = statementMapping.get(last.entry)
             case k =>
-                contextString = contextString + "_" + statementMapping.get(cmpstmt.innerStatements.head.entry)
+                id = statementMapping.get(cmpstmt.innerStatements.head.entry)
         }
 
-        if (contextString.endsWith("null")) {
-            contextString = contextString.substring(0, contextString.length-5)
+        if (!id.endsWith("null")) {
+            contextString = id
         }
 
         val beforeStmt = ExprStatement(PostfixExpr(Id(functionName), FunctionCall(ExprList(List(Opt(trueF3, StringLit(List(Opt(trueF3, "\"" ++ contextString ++ "\"")))))))))
