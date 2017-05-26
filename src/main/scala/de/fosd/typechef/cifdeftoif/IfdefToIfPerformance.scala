@@ -383,7 +383,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 id = statementMapping.get(cmpstmt.innerStatements.head.entry)
         }
 
-        if (!id.endsWith("null")) {
+        if (id != null) {
             contextString = id
         }
 
