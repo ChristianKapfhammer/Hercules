@@ -115,6 +115,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeMapFile()
         writeOperatorFile()
 
+
         ignoredStatements
     }
 
@@ -172,7 +173,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
 
         for ((k, v) <- map) {
-            string = string + k.toString() + "," + v.toString() + "\n"
+            string = string + k.toString + "," + v.toString + "\n"
         }
 
         pw.write(string)
@@ -424,14 +425,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     }
 
     private def createBlockName(expr: FeatureExpr): String = {
-        /*var id = 0
+        var id = 0
         if(featureCounter.contains(expr)) {
             id = featureCounter(expr)
         }
 
-        */
-
-        expr.toString() + "_" + java.util.UUID.randomUUID.toString
+        expr.toString() + "_" + id
+        //expr.toString() + "_" + java.util.UUID.randomUUID.toString
     }
 
     private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
