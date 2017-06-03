@@ -27,16 +27,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
     class FuncCall(var functionName: String, var block: String, var condition: FeatureExpr, var weight: Double) {}
 
-    /*private val DEFAULT_FUNCTION_WEIGHT = 1.0
-
-    private val FOR_WEIGHT: Double = 3.0
-    private val WHILE_WEIGHT: Double = 3.0
-    private val DO_WEIGHT: Double = 3.0
-    private val BREAK_WEIGHT: Double = 0.4
-    private val CONTINUE_WEIGHT: Double = 0.8
-    private val GOTO_WEIGHT: Double = 0.2
-    private val RECURSIVE_WEIGHT: Double = 3.0*/
-
     private var BUCKET_SIZE: Int = 5
     private var DEFAULT_FUNCTION_WEIGHT = 1.0
 
@@ -57,13 +47,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var functionBlocks: Map[String, Set[String]] = Map.empty[String, Set[String]]
     // in which function is the call? -> (what function is called?, which condition?, which weight?)
     private var globalFunctionCalls: Map[String, List[FuncCall]] = Map.empty[String, List[FuncCall]]
-    //private val exprToBlock: IdentityHashMap[FeatureExpr, String] = new IdentityHashMap[FeatureExpr, String]()
-    //private var blockToExprs: Map[String, IdentityHashMap[FeatureExpr, FeatureExpr]] = Map.empty[String, IdentityHashMap[FeatureExpr, FeatureExpr]]
     private var blockToExpr: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
     private val statementToBlock: IdentityHashMap[Statement, String] = new IdentityHashMap[Statement, String]()
     private var blockToStatements: Map[String, IdentityHashMap[Statement, Statement]] = Map.empty[String, IdentityHashMap[Statement, Statement]]
     private var blockCapsuling: Map[String, Set[String]] = Map.empty[String, Set[String]]
     private var blockScores: Map[String, Double] = Map.empty[String, Double]
+    private var singleBlockScores: Map[String, Double] = Map.empty[String, Double]
     private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     private var loopCounter: Int = 0
 
@@ -75,6 +64,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var subtractionBlockCounter: Int = 0
     private var multiplicationBlockCounter: Int = 0
     private var divisionBlockCounter: Int = 0
+
+    private var scoreCauses: Map[String, Set[String]] = Map.empty[String, Set[String]]
 
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int = 2): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
@@ -90,9 +81,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         calculateLoopScores(ast)
         loopCounter = 0
         granularity(ast)
-        calculateBlockScores()
-        calculateFunctionScores()
-        careFunctionCalls()
+        calculateBlockScores() // Calculates accumulated block scores for function scores
+        calculateFunctionScores() //
+        careFunctionCalls() // Adds function scores to
+        finalizeBlockScores()
 
         blockScores.foreach(block => {
             if (block._1 != null && blockToStatements.contains(block._1) && block._2 < threshold) {
@@ -114,7 +106,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeDataFile()
         writeMapFile()
         writeOperatorFile()
-
 
         ignoredStatements
     }
@@ -187,8 +178,16 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         for ((k, v) <- blockScores) {
             val id = k.split("_").last
+            var causesString = ""
+            val causes = collection.immutable.SortedSet(scoreCauses(k).toList: _*)
 
-            string = string + id + "," + k.substring(0, k.length-id.length-1) + "," + v.toString + "\n"
+            if (causes.isEmpty) {
+                causesString = "None"
+            } else {
+                causesString = causes.mkString(";")
+            }
+
+            string = string + id + "," + k.substring(0, k.length-id.length-1) + "," + v.toString + "," + causesString + "\n"
         }
 
         pw.write(string)
@@ -430,8 +429,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             id = featureCounter(expr)
         }
 
-        expr.toString() + "_" + id
-        //expr.toString() + "_" + java.util.UUID.randomUUID.toString
+        //expr.toString() + "_" + id
+        expr.toString() + "_" + java.util.UUID.randomUUID.toString
     }
 
     private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
@@ -595,11 +594,16 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    private def granularity(obj: Any, currentBlocks: Set[String] = Set.empty[String], currentFunction: String = null, weight: Double = 1.0): Unit = {
+    private def granularity(obj: Any, currentBlocks: Set[String] = Set.empty[String], currentFunction: String = null,
+                            weight: Double = 1.0, causes: Set[String] = Set.empty[String]): Unit = {
+        var newCauses = causes
+
         obj match {
             case x: ForStatement =>
                 val currentLoop: Int = loopCounter
                 var blocks: Set[String] = currentBlocks
+
+                newCauses += "For-Loop"
 
                 if (statementToBlock.containsKey(x)) {
                     blocks = blocks + statementToBlock.get(x)
@@ -611,18 +615,26 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
+                for (c <- newCauses) {
+                    for (b <- blocks) {
+                        addScoreCause(b, c)
+                    }
+                }
+
                 increaseScore(blocks, currentFunction, weight * loopScores(currentLoop))
 
                 loopCounter += 1
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop))
+                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop), newCauses)
                     }
                 }
             case x: WhileStatement =>
                 val currentLoop: Int = loopCounter
                 var blocks: Set[String] = currentBlocks
 
+                newCauses += "While-Loop"
+
                 if (statementToBlock.containsKey(x)) {
                     blocks = blocks + statementToBlock.get(x)
 
@@ -633,18 +645,26 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
+                for (c <- newCauses) {
+                    for (b <- blocks) {
+                        addScoreCause(b, c)
+                    }
+                }
+
                 increaseScore(blocks, currentFunction, weight * loopScores(currentLoop))
 
                 loopCounter += 1
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop))
+                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop), newCauses)
                     }
                 }
             case x: DoStatement =>
                 val currentLoop: Int = loopCounter
                 var blocks: Set[String] = currentBlocks
 
+                newCauses += "Do-Loop"
+
                 if (statementToBlock.containsKey(x)) {
                     blocks = blocks + statementToBlock.get(x)
 
@@ -655,12 +675,18 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
+                for (c <- newCauses) {
+                    for (b <- blocks) {
+                        addScoreCause(b, c)
+                    }
+                }
+
                 increaseScore(blocks, currentFunction, weight * loopScores(currentLoop))
 
                 loopCounter += 1
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop))
+                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop), newCauses)
                     }
                 }
 
@@ -712,6 +738,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         obj match {
                             case _: EmptyStatement | _: BreakStatement | _: ContinueStatement | _: GotoStatement => // Filtering statements that should not be counted
                             case _ =>
+                                for (c <- newCauses) {
+                                    for (b <- blocks) {
+                                        addScoreCause(b, c)
+                                    }
+                                }
+
                                 increaseScore(blocks, currentFunction, weight)
                         }
                     case _ =>
@@ -719,22 +751,22 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, functionDef, weight)
+                        granularity(y, blocks, functionDef, weight, newCauses)
                     }
                 }
             case x: Opt[_] =>
-                granularity(x.entry, currentBlocks, currentFunction, weight)
+                granularity(x.entry, currentBlocks, currentFunction, weight, newCauses)
             case x: List[_] =>
                 for (elem <- x) {
-                    granularity(elem, currentBlocks, currentFunction, weight)
+                    granularity(elem, currentBlocks, currentFunction, weight, newCauses)
                 }
             case Some(x) =>
-                granularity(x, currentBlocks, currentFunction, weight)
+                granularity(x, currentBlocks, currentFunction, weight, newCauses)
             case x: One[_] =>
-                granularity(x.value, currentBlocks, currentFunction, weight)
+                granularity(x.value, currentBlocks, currentFunction, weight, newCauses)
             case x: Choice[_] =>
-                granularity(x.thenBranch, currentBlocks, currentFunction, weight)
-                granularity(x.elseBranch, currentBlocks, currentFunction, weight)
+                granularity(x.thenBranch, currentBlocks, currentFunction, weight, newCauses)
+                granularity(x.elseBranch, currentBlocks, currentFunction, weight, newCauses)
             case None =>
             case o =>
         }
@@ -771,6 +803,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
     private def calculateBlockScores(): Unit = {
         var blockScoreChange: Map[String, Double] = Map.empty[String, Double]
+
+        singleBlockScores = blockScores
 
         blockScores.foreach(block => {
             var sum = blockScores(block._1)
@@ -917,6 +951,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
             if (FUNCTION_ACCUMULATION) {
                 if (recSetValue.contains(call.functionName)) {
+                    addScoreCause(call.block, "Recursion")
                     RECURSIVE_WEIGHT * recSetValue(call.functionName)
                 } else {
                     if (call.condition.and(cond).isSatisfiable(featureModel)) {
@@ -927,6 +962,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                 sum += getCallValue(furtherCall, cond.and(call.condition))
                             }
                         }
+
+                        addScoreCause(call.block, "Function")
 
                         sum
                     } else {
@@ -944,18 +981,67 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
         }
 
-        // Add function call costs to the corresponding blocks
+        // Add function call costs to the corresponding blocks (single score)
         for (value <- globalFunctionCalls.values) {
             for (call <- value) {
-                if (blockScores.contains(call.block)) {
-                    val w = blockScores(call.block)
+                if (singleBlockScores.contains(call.block)) {
+                    val w = singleBlockScores(call.block)
 
-                    blockScores -= call.block
-                    blockScores += (call.block -> (w + FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True)))
+                    singleBlockScores -= call.block
+                    singleBlockScores += (call.block -> (w + FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True)))
                 } else {
-                    blockScores += (call.block -> FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True))
+                    singleBlockScores += (call.block -> FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True))
                 }
             }
+        }
+    }
+
+    private def finalizeBlockScores() : Unit = {
+        var blockScoreChange: Map[String, Double] = Map.empty[String, Double]
+
+        blockScores = singleBlockScores
+
+        blockScores.foreach(block => {
+            var sum = blockScores(block._1)
+            var causes = Set.empty[String]
+
+            if (scoreCauses.contains(block._1)) {
+                causes = scoreCauses(block._1)
+            }
+
+            if (blockCapsuling.contains(block._1)) {
+                for (subBlock <- blockCapsuling(block._1)) {
+                    if (blockScores.contains(subBlock)) {
+                        sum += blockScores(subBlock)
+                    }
+                    if (scoreCauses.contains(subBlock)) {
+                        causes = causes.union(scoreCauses(subBlock))
+                    }
+                }
+            }
+
+            if (scoreCauses.contains(block._1)) {
+                scoreCauses -= block._1
+            }
+
+            scoreCauses += (block._1 -> causes)
+
+            blockScoreChange += (block._1 -> sum)
+        })
+
+        blockScores = blockScoreChange
+    }
+
+    private def addScoreCause(block: String, scoreCause: String) : Unit = {
+
+        if (scoreCauses.contains(block)) {
+            var set: Set[String] = scoreCauses(block)
+            set += scoreCause
+
+            scoreCauses -= block
+            scoreCauses += (block -> set)
+        } else {
+            scoreCauses += (block -> Set(scoreCause))
         }
     }
 
