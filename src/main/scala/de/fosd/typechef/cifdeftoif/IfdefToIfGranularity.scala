@@ -3,6 +3,7 @@ package de.fosd.typechef.cifdeftoif
 import java.io.{File, PrintWriter}
 import java.util
 import java.util.IdentityHashMap
+import java.nio.file.{Paths, Files}
 
 import de.fosd.typechef.conditional.{Choice, One, Opt}
 import de.fosd.typechef.featureexpr._
@@ -429,8 +430,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             id = featureCounter(expr)
         }
 
-        //expr.toString() + "_" + id
-        expr.toString() + "_" + java.util.UUID.randomUUID.toString
+        expr.toString() + "_" + id
+        //expr.toString() + "_" + java.util.UUID.randomUUID.toString
     }
 
     private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
