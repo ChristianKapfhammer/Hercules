@@ -430,8 +430,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             id = featureCounter(expr)
         }
 
-        expr.toString() + "_" + id
-        //expr.toString() + "_" + java.util.UUID.randomUUID.toString
+        //expr.toString() + "_" + id
+        expr.toString() + "_" + java.util.UUID.randomUUID.toString
     }
 
     private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
