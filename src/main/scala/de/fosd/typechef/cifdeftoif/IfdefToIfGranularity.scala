@@ -867,21 +867,23 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             var functionCalls: Set[FuncCall] = Set.empty[FuncCall]
 
             for (func <- nextFunctionCalls) {
-                if (recCondition.and(func.condition).isSatisfiable(featureModel)) {
-                    recCondition = recCondition.and(func.condition)
+                if (func.functionName != "sqlite3Coverage") {
+                    if (recCondition.and(func.condition).isSatisfiable(featureModel)) {
+                        recCondition = recCondition.and(func.condition)
 
-                    if (globalFunctionCalls.contains(func.functionName)
-                        && (!visitedFunctions.contains(func.functionName) || !visitedFunctions(func.functionName))) {
-                        for (call <- globalFunctionCalls(func.functionName)) {
-                            functionCalls += call
+                        if (globalFunctionCalls.contains(func.functionName)
+                            && (!visitedFunctions.contains(func.functionName) || !visitedFunctions(func.functionName))) {
+                            for (call <- globalFunctionCalls(func.functionName)) {
+                                functionCalls += call
+                            }
                         }
-                    }
 
-                    if (!visitedFunctions.contains(func.functionName)) {
-                        visitedFunctions += (func.functionName -> false)
-                    } else if (!visitedFunctions(func.functionName)) {
-                        visitedFunctions -= func.functionName
-                        visitedFunctions += (func.functionName -> true)
+                        if (!visitedFunctions.contains(func.functionName)) {
+                            visitedFunctions += (func.functionName -> false)
+                        } else if (!visitedFunctions(func.functionName)) {
+                            visitedFunctions -= func.functionName
+                            visitedFunctions += (func.functionName -> true)
+                        }
                     }
                 }
             }
@@ -950,6 +952,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
+            if (call.functionName == "sqlite3Coverage") {
+                return 1
+            }
+
             if (FUNCTION_ACCUMULATION) {
                 if (recSetValue.contains(call.functionName)) {
                     addScoreCause(call.block, "Recursion")
@@ -973,6 +979,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             } else {
                 var sum = functionScores(call.functionName)
+
+                addScoreCause(call.block, "Function")
 
                 if (globalFunctionCalls.contains(call.functionName)) {
                     sum += globalFunctionCalls(call.functionName).size * DEFAULT_FUNCTION_WEIGHT
