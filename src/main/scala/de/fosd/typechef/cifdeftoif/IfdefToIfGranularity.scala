@@ -27,6 +27,7 @@ trait IfdefToIfGranularityInterface {
 trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IOUtilities {
 
     class FuncCall(var functionName: String, var block: String, var condition: FeatureExpr, var weight: Double) {}
+    class IfCall(var statement: Any, var block: String, var condition: FeatureExpr, var weight: Double) {}
 
     private var BUCKET_SIZE: Int = 5
     private var DEFAULT_FUNCTION_WEIGHT = 1.0
@@ -48,6 +49,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var functionBlocks: Map[String, Set[String]] = Map.empty[String, Set[String]]
     // in which function is the call? -> (what function is called?, which condition?, which weight?)
     private var globalFunctionCalls: Map[String, List[FuncCall]] = Map.empty[String, List[FuncCall]]
+    private var globalIfStatements: Map[Any, Set[IfCall]] = Map.empty[Any, Set[IfCall]]
     private var blockToExpr: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
     private val statementToBlock: IdentityHashMap[Statement, String] = new IdentityHashMap[Statement, String]()
     private var blockToStatements: Map[String, IdentityHashMap[Statement, Statement]] = Map.empty[String, IdentityHashMap[Statement, Statement]]
@@ -108,7 +110,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeMapFile()
         writeOperatorFile()
 
-        //readScatterplotPerformance300AllYesFiles()
+        readScatterplotPerformance300AllYesFiles()
 
         //readScoreFile()
         //readAndWriteEDFPerformanceAllFiles()
@@ -178,7 +180,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/plots_sqlite3coverage/"
+    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/plots_coverage+createModule/"
 
     private def readScatterplotPerformance300AllYesFiles(): Unit = {
         for (i <- 0 to 299) {
@@ -1457,7 +1459,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
             if (call.functionName == "sqlite3Coverage") {
                 return 1
-            } else if (call.functionName == "createModule") {
+            } else if (call.functionName == "sqlite3Fts3Init") {
                 return 10000
             }
 
