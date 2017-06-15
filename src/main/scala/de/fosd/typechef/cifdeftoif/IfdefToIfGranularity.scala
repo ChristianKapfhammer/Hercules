@@ -1200,6 +1200,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 var functionDef = currentFunction
                 var blocks = currentBlocks
+                var adjustedWeight = weight
 
                 obj match {
                     case funcDef: FunctionDef =>
@@ -1252,12 +1253,32 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                                 increaseScore(blocks, currentFunction, weight)
                         }
+                        obj match {
+                            case i: IfStatement =>
+                                adjustedWeight = weight/(i.elifs.size+2)
+                            case SwitchStatement(_, One(CompoundStatement(list))) =>
+                                var amountCases = 0
+
+                                // Count amount of case statements and default statement
+                                for (elem <- list) {
+                                    elem.entry match {
+                                        case _: CaseStatement | _: DefaultStatement =>
+                                            amountCases += 1
+                                        case _ =>
+                                    }
+                                }
+
+                                if (amountCases != 0)
+                                    adjustedWeight = weight/amountCases
+
+                            case _ =>
+                        }
                     case _ =>
                 }
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, functionDef, weight, newCauses)
+                        granularity(y, blocks, functionDef, adjustedWeight, newCauses)
                     }
                 }
             case x: Opt[_] =>
@@ -1372,7 +1393,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             var functionCalls: Set[FuncCall] = Set.empty[FuncCall]
 
             for (func <- nextFunctionCalls) {
-                if (func.functionName != "sqlite3Coverage" && func.functionName != "createModule") {
+                //if (func.functionName != "sqlite3Coverage" && func.functionName != "sqlite3Fts3Init") {
                     if (recCondition.and(func.condition).isSatisfiable(featureModel)) {
                         recCondition = recCondition.and(func.condition)
 
@@ -1390,7 +1411,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                             visitedFunctions += (func.functionName -> true)
                         }
                     }
-                }
+                //}
             }
 
             nextFunctionCalls = functionCalls
@@ -1457,11 +1478,11 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
-            if (call.functionName == "sqlite3Coverage") {
+            /*if (call.functionName == "sqlite3Coverage") {
                 return 1
             } else if (call.functionName == "sqlite3Fts3Init") {
                 return 10000
-            }
+            }*/
 
             if (FUNCTION_ACCUMULATION) {
                 if (recSetValue.contains(call.functionName)) {
