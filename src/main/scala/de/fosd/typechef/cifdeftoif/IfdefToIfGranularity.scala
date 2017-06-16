@@ -43,6 +43,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var FUNCTION_ACCUMULATION: Boolean = true
     private var FUNCTION_CALL_WEIGHT: Double = 1.0
 
+    private var predefinedFunctionScores: Map[String, Double] = Map.empty[String, Double]
+
     private var loopScores: Map[Int, Double] = Map.empty[Int, Double]
     private var functionDefs: Set[String] = Set.empty[String]
     private var functionScores: Map[String, Double] = Map.empty[String, Double]
@@ -76,6 +78,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         featureModel = fm
         dir = outputDir
         readConfigFile()
+        readFunctionConfigFile()
 
         codeAnalysis(ast)
 
@@ -618,35 +621,48 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     }*/
 
     private def readConfigFile(): Unit = {
+        if (Files.exists(Paths.get("./granularity_config.txt"))) {
+            for (c <- Source.fromFile("granularity_config.txt").getLines()) {
+                val configParts = c.split("=")
 
-        for (c <- Source.fromFile("granularity_config.txt").getLines()) {
-            val configParts = c.split("=")
+                if (configParts.size == 2) {
+                    configParts(0) match {
+                        case "for_weight" =>
+                            FOR_WEIGHT = configParts(1).toDouble
+                        case "while_weight" =>
+                            WHILE_WEIGHT = configParts(1).toDouble
+                        case "do_weight" =>
+                            DO_WEIGHT = configParts(1).toDouble
+                        case "break_weight" =>
+                            BREAK_WEIGHT = configParts(1).toDouble
+                        case "continue_weight" =>
+                            CONTINUE_WEIGHT = configParts(1).toDouble
+                        case "goto_weight" =>
+                            GOTO_WEIGHT = configParts(1).toDouble
+                        case "recursive_weight" =>
+                            RECURSIVE_WEIGHT = configParts(1).toDouble
+                        case "default_function_value" =>
+                            DEFAULT_FUNCTION_WEIGHT = configParts(1).toDouble
+                        case "function_accumulation" =>
+                            FUNCTION_ACCUMULATION = configParts(1).toBoolean
+                        case "function_call_weight" =>
+                            FUNCTION_CALL_WEIGHT = configParts(1).toDouble
+                        case "bucket_size" =>
+                            BUCKET_SIZE = configParts(1).toInt
+                        case _ =>
+                    }
+                }
+            }
+        }
+    }
 
-            if (configParts.size == 2) {
-                configParts(0) match {
-                    case "for_weight" =>
-                        FOR_WEIGHT = configParts(1).toDouble
-                    case "while_weight" =>
-                        WHILE_WEIGHT = configParts(1).toDouble
-                    case "do_weight" =>
-                        DO_WEIGHT = configParts(1).toDouble
-                    case "break_weight" =>
-                        BREAK_WEIGHT = configParts(1).toDouble
-                    case "continue_weight" =>
-                        CONTINUE_WEIGHT = configParts(1).toDouble
-                    case "goto_weight" =>
-                        GOTO_WEIGHT = configParts(1).toDouble
-                    case "recursive_weight" =>
-                        RECURSIVE_WEIGHT = configParts(1).toDouble
-                    case "default_function_value" =>
-                        DEFAULT_FUNCTION_WEIGHT = configParts(1).toDouble
-                    case "function_accumulation" =>
-                        FUNCTION_ACCUMULATION = configParts(1).toBoolean
-                    case "function_call_weight" =>
-                        FUNCTION_CALL_WEIGHT = configParts(1).toDouble
-                    case "bucket_size" =>
-                        BUCKET_SIZE = configParts(1).toInt
-                    case _ =>
+    private def readFunctionConfigFile(): Unit = {
+        if (Files.exists(Paths.get("./predefined_function_scores.txt"))) {
+            for (c <- Source.fromFile("predefined_function_scores.txt").getLines()) {
+                val configParts = c.split(" ")
+
+                if (configParts.size == 2 && !predefinedFunctionScores.contains(configParts(0))) {
+                    predefinedFunctionScores += (configParts(0) -> configParts(1).toDouble)
                 }
             }
         }
@@ -1406,7 +1422,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             var functionCalls: Set[FuncCall] = Set.empty[FuncCall]
 
             for (func <- nextFunctionCalls) {
-                //if (func.functionName != "sqlite3Coverage" && func.functionName != "sqlite3Fts3Init") {
+                if (!predefinedFunctionScores.contains(func.functionName)) {
                     if (recCondition.and(func.condition).isSatisfiable(featureModel)) {
                         recCondition = recCondition.and(func.condition)
 
@@ -1424,7 +1440,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                             visitedFunctions += (func.functionName -> true)
                         }
                     }
-                //}
+                }
             }
 
             nextFunctionCalls = functionCalls
@@ -1505,21 +1521,21 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         var functionCalls: Set[FuncCall] = Set.empty[FuncCall]
 
                         for (func <- nextFunctionCalls) {
-                            //if (func.functionName != "sqlite3Coverage" && func.functionName != "sqlite3Fts3Init") {
-                            if (globalFunctionCalls.contains(func.functionName)
-                                && (!visitedFunctions.contains(func.functionName) || !visitedFunctions(func.functionName))) {
-                                for (call <- globalFunctionCalls(func.functionName)) {
-                                    functionCalls += call
+                            if (!predefinedFunctionScores.contains(func.functionName)) {
+                                if (globalFunctionCalls.contains(func.functionName)
+                                    && (!visitedFunctions.contains(func.functionName) || !visitedFunctions(func.functionName))) {
+                                    for (call <- globalFunctionCalls(func.functionName)) {
+                                        functionCalls += call
+                                    }
+                                }
+
+                                if (!visitedFunctions.contains(func.functionName)) {
+                                    visitedFunctions += (func.functionName -> false)
+                                } else if (!visitedFunctions(func.functionName)) {
+                                    visitedFunctions -= func.functionName
+                                    visitedFunctions += (func.functionName -> true)
                                 }
                             }
-
-                            if (!visitedFunctions.contains(func.functionName)) {
-                                visitedFunctions += (func.functionName -> false)
-                            } else if (!visitedFunctions(func.functionName)) {
-                                visitedFunctions -= func.functionName
-                                visitedFunctions += (func.functionName -> true)
-                            }
-                            //}
                         }
 
                         nextFunctionCalls = functionCalls
@@ -1534,11 +1550,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
-            /*if (call.functionName == "sqlite3Coverage") {
-                return 1
-            } else if (call.functionName == "sqlite3Fts3Init") {
-                return 10000
-            }*/
+            if (predefinedFunctionScores.contains(call.functionName))
+                return predefinedFunctionScores(call.functionName)
 
             if (FUNCTION_ACCUMULATION) {
                 if (recSetValue.contains(call.functionName)) {
