@@ -1510,7 +1510,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     var visitedFunctions: Map[String, Boolean] = Map.empty[String, Boolean]
                     var nextFunctionCalls: Set[FuncCall] = Set.empty[FuncCall]
 
-
                     if (globalFunctionCalls.contains(startFunction)) {
                         for (call <- globalFunctionCalls(startFunction)) {
                             nextFunctionCalls += call
@@ -1551,7 +1550,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
             if (predefinedFunctionScores.contains(call.functionName))
-                return predefinedFunctionScores(call.functionName)
+                return predefinedFunctionScores(call.functionName)*call.weight
 
             if (FUNCTION_ACCUMULATION) {
                 if (recSetValue.contains(call.functionName)) {
