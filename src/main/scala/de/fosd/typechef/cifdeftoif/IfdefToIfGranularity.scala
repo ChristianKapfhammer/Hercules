@@ -1230,6 +1230,18 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                             globalFunctionCalls += (currentFunction -> List(tuple))
                                         }
                                     }
+
+                                    if (currentBlocks.isEmpty) {
+                                        val tuple = new FuncCall(funcName, "True", FeatureExprFactory.True, weight)
+                                        if (globalFunctionCalls.contains(currentFunction)) {
+                                            val list = globalFunctionCalls(currentFunction)
+
+                                            globalFunctionCalls -= currentFunction
+                                            globalFunctionCalls += (currentFunction -> (list ::: List(tuple)))
+                                        } else {
+                                            globalFunctionCalls += (currentFunction -> List(tuple))
+                                        }
+                                    }
                                 case _ =>
                             }
                         }
@@ -1479,6 +1491,49 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 recSetValue += (entry._1 -> (value / entry._2.length))
             }
+
+            // Remove calls of branch functions in recursion sets
+            for (recursion <- functionRecSets) {
+                for (startFunction <- recursion) {
+                    var visitedFunctions: Map[String, Boolean] = Map.empty[String, Boolean]
+                    var nextFunctionCalls: Set[FuncCall] = Set.empty[FuncCall]
+
+
+                    if (globalFunctionCalls.contains(startFunction)) {
+                        for (call <- globalFunctionCalls(startFunction)) {
+                            nextFunctionCalls += call
+                        }
+                    }
+
+                    while (nextFunctionCalls.nonEmpty) {
+                        var functionCalls: Set[FuncCall] = Set.empty[FuncCall]
+
+                        for (func <- nextFunctionCalls) {
+                            //if (func.functionName != "sqlite3Coverage" && func.functionName != "sqlite3Fts3Init") {
+                            if (globalFunctionCalls.contains(func.functionName)
+                                && (!visitedFunctions.contains(func.functionName) || !visitedFunctions(func.functionName))) {
+                                for (call <- globalFunctionCalls(func.functionName)) {
+                                    functionCalls += call
+                                }
+                            }
+
+                            if (!visitedFunctions.contains(func.functionName)) {
+                                visitedFunctions += (func.functionName -> false)
+                            } else if (!visitedFunctions(func.functionName)) {
+                                visitedFunctions -= func.functionName
+                                visitedFunctions += (func.functionName -> true)
+                            }
+                            //}
+                        }
+
+                        nextFunctionCalls = functionCalls
+                    }
+
+                    if (!visitedFunctions.contains(startFunction)) {
+                        recSetValue -= startFunction
+                    }
+                }
+            }
         }
 
         // Calculate the accumulated costs of a function call
@@ -1491,7 +1546,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             if (FUNCTION_ACCUMULATION) {
                 if (recSetValue.contains(call.functionName)) {
-                    addScoreCause(call.block, "Recursion: " + functionRecSets.toString)
+                    addScoreCause(call.block, "Recursion")
                     RECURSIVE_WEIGHT * recSetValue(call.functionName)
                 } else {
                     if (call.condition.and(cond).isSatisfiable(featureModel)) {
@@ -1526,13 +1581,15 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         // Add function call costs to the corresponding blocks (single score)
         for (value <- globalFunctionCalls.values) {
             for (call <- value) {
-                if (singleBlockScores.contains(call.block)) {
-                    val w = singleBlockScores(call.block)
+                if (call.condition != FeatureExprFactory.True) {
+                    if (singleBlockScores.contains(call.block)) {
+                        val w = singleBlockScores(call.block)
 
-                    singleBlockScores -= call.block
-                    singleBlockScores += (call.block -> (w + FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True)))
-                } else {
-                    singleBlockScores += (call.block -> FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True))
+                        singleBlockScores -= call.block
+                        singleBlockScores += (call.block -> (w + FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True)))
+                    } else {
+                        singleBlockScores += (call.block -> FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True))
+                    }
                 }
             }
         }
