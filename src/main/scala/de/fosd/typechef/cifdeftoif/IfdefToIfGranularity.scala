@@ -83,13 +83,20 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         codeAnalysis(ast)
 
         // Order is important, blockMapping -> loopScores -> generalGranularity -> blocks -> functions -> function calls
+        println(" - Calculating block mapping")
         calculateBlockMapping(ast)
+        println(" - Calculating loop scores")
         calculateLoopScores(ast)
         loopCounter = 0
+        println(" - Running general statement counting")
         granularity(ast)
+        println(" - Calculating combined block scores")
         calculateBlockScores() // Calculates accumulated block scores for function scores
-        calculateFunctionScores() //
+        println(" - Calculating function scores")
+        calculateFunctionScores()
+        println(" - Calculating recursions and adding function influence to blocks")
         careFunctionCalls() // Adds function scores to blocks
+        println(" - Finalizing block scores")
         finalizeBlockScores()
 
         blockScores.foreach(block => {
