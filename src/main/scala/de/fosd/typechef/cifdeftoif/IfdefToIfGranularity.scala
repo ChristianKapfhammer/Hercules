@@ -1268,11 +1268,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         }
                         obj match {
                             case i: IfStatement =>
-                                if (i.elifs.isEmpty) {
-                                    adjustedWeight = weight / 2
-                                } else {
-                                    adjustedWeight = weight / Math.pow(2.5, i.elifs.size + 2)
-                                }
+                                adjustedWeight = weight / (i.elifs.size + 2)
                             case SwitchStatement(_, One(CompoundStatement(list))) =>
                                 var amountCases = 0
 
