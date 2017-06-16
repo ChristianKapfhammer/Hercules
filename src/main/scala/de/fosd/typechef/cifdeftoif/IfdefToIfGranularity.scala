@@ -99,6 +99,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         calculateFunctionScores() //
         careFunctionCalls() // Adds function scores to blocks
         finalizeBlockScores()
+        for ((f, v) <- blockScores) {
+            println(f + " -> " + v.toString)
+        }
+        println("--------------------------------------------------------------------")
 
         blockScores.foreach(block => {
             if (block._1 != null && blockToStatements.contains(block._1) && block._2 < threshold) {
