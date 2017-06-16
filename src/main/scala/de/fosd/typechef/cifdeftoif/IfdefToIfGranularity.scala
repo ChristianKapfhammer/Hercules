@@ -1532,7 +1532,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     nextFunctions = set
                 }
 
-                var sum = 0
+                var sum: Double = 0.0
 
                 for (func <- calledFunctions) {
                     sum += functionScores(func)
