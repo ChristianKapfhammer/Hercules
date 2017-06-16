@@ -110,7 +110,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeMapFile()
         writeOperatorFile()
 
-        //readScatterplotPerformance300AllYesFiles()
+        readScatterplotPerformance300AllYesFiles()
 
         //readScoreFile()
         //readAndWriteEDFPerformanceAllFiles()
@@ -180,7 +180,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/plots_coverage+createModule/"
+    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/plots_ifs_cases/"
 
     private def readScatterplotPerformance300AllYesFiles(): Unit = {
         for (i <- 0 to 299) {
@@ -207,7 +207,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 var string = "Transformation,Block,Score,Performance,Causes\n"
 
                 for (run <- 1 to 10) {
-                    if (Files.exists(Paths.get(path + "performance_results/Run_" + run + "/" + i))) {
+                    if (Files.exists(Paths.get(path + "performance_results/Run_" + run + "/" + i))
+                        && Files.exists(Paths.get(path + "performance_results/Run_" + run + "/" + i + "/perf_ay.txt"))) {
 
                         for (line <- Source.fromFile(path + "performance_results/Run_" + run + "/" + i + "/perf_ay.txt").getLines()) {
                             if (line.contains(" -> ")) {
@@ -1255,7 +1256,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         }
                         obj match {
                             case i: IfStatement =>
-                                adjustedWeight = weight/(i.elifs.size+2)
+                                adjustedWeight = weight/Math.pow(i.elifs.size+2, 1.5)
                             case SwitchStatement(_, One(CompoundStatement(list))) =>
                                 var amountCases = 0
 
