@@ -88,8 +88,20 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         loopCounter = 0
         granularity(ast)
         calculateBlockScores() // Calculates accumulated block scores for function scores
+        for ((f, v) <- functionScores) {
+            println(f + " -> " + v.toString)
+        }
+        println("--------------------------------------------------------------------")
         calculateFunctionScores() //
-        careFunctionCalls() // Adds function scores to
+        for ((f, v) <- functionScores) {
+            println(f + " -> " + v.toString)
+        }
+        println("--------------------------------------------------------------------")
+        careFunctionCalls() // Adds function scores to blocks
+        for ((f, v) <- functionScores) {
+            println(f + " -> " + v.toString)
+        }
+        println("--------------------------------------------------------------------")
         finalizeBlockScores()
 
         blockScores.foreach(block => {
@@ -112,10 +124,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeDataFile()
         writeMapFile()
         writeOperatorFile()
-
-        for ((f, v) <- functionScores) {
-            println(f + " -> " + v.toString)
-        }
 
         //readScatterplotPerformance300AllYesFiles()
 
@@ -1550,9 +1558,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             }
         }
-
-        println(functionRecSets.toString)
-        println("-----------------------------------------------------------------")
 
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
