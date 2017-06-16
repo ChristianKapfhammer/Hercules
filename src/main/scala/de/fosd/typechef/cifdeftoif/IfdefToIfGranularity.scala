@@ -1510,6 +1510,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         if (FUNCTION_ACCUMULATION) {
             calculateFunctionsCalledBy()
 
+            println("     -- Calculating recursions")
             for ((funcLocation, funcCalls) <- globalFunctionCalls) {
                 for (call <- funcCalls) {
                     getRecSet(call) match {
@@ -1520,6 +1521,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             }
 
+            println("     -- Calculating recursion values")
             // Calculate the score of a recursion set (contains every possible called function started in the recursion set)
             // TODO: Can be calculated better regarding the condition of every possible function call line
             for (recSet <- functionRecSets) {
@@ -1610,6 +1612,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
 
         // Add function call costs to the corresponding blocks (single score)
+        println("     -- Adding functions calls to single blocks")
         for (value <- globalFunctionCalls.values) {
             for (call <- value) {
                 if (call.condition != FeatureExprFactory.True) {
