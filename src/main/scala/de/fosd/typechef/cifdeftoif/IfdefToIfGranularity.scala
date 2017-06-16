@@ -90,6 +90,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         loopCounter = 0
         println(" - Running general statement counting")
         granularity(ast)
+        for ((f, s) <- functionScores) {
+            println(f + " -> " + s)
+        }
         println(" - Calculating combined block scores")
         calculateBlockScores() // Calculates accumulated block scores for function scores
         println(" - Calculating function scores")
@@ -1580,6 +1583,16 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 recSetValue += (entry._1 -> (value / entry._2.length))
             }
         }
+
+        val pw = new PrintWriter(new File(dir + "recursions.txt"))
+        var string = ""
+
+        for (rec <- functionRecSets) {
+            string = string + rec.toString + "\n"
+        }
+
+        pw.write(string)
+        pw.close()
 
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
