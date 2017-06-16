@@ -113,6 +113,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeMapFile()
         writeOperatorFile()
 
+        for ((f, v) <- functionScores) {
+            println(f + " -> " + v.toString)
+        }
+
         //readScatterplotPerformance300AllYesFiles()
 
         //readScoreFile()
@@ -1554,7 +1558,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             if (FUNCTION_ACCUMULATION) {
                 if (recSetValue.contains(call.functionName)) {
-                    addScoreCause(call.block, "Recursion")
+                    addScoreCause(call.block, "Recursion: " + functionRecSets.toString)
                     RECURSIVE_WEIGHT * recSetValue(call.functionName)
                 } else {
                     if (call.condition.and(cond).isSatisfiable(featureModel)) {
