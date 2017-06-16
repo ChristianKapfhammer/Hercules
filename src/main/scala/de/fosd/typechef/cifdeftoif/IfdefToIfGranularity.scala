@@ -1526,7 +1526,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             // TODO: Can be calculated better regarding the condition of every possible function call line
             var i = 1
             for (recSet <- functionRecSets) {
-                println("         -- Evaluating recursion " + i.toString)
+                println("         -- Evaluating recursion " + i.toString + " of " +  functionRecSets.size)
                 var calledFunctions: Set[String] = Set.empty[String]
                 var nextFunctions: Set[String] = recSet
 
