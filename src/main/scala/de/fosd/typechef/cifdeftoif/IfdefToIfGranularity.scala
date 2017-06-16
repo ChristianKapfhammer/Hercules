@@ -1513,7 +1513,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             println("     -- Calculating recursions")
             var i = 1
             for ((funcLocation, funcCalls) <- globalFunctionCalls) {
-                println("         -- Attempting to calculate recursion " + i.toString + " of " +  globalFunctionCalls.size)
+                println("         -- Attempting to calculate recursion: Call " + i.toString + " of " +  globalFunctionCalls.size)
                 for (call <- funcCalls) {
                     getRecSet(call) match {
                         case Some(x) =>
