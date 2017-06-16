@@ -88,20 +88,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         loopCounter = 0
         granularity(ast)
         calculateBlockScores() // Calculates accumulated block scores for function scores
-        for ((f, v) <- functionScores) {
+        for ((f, v) <- blockScores) {
             println(f + " -> " + v.toString)
         }
         println("--------------------------------------------------------------------")
         calculateFunctionScores() //
-        for ((f, v) <- functionScores) {
-            println(f + " -> " + v.toString)
-        }
-        println("--------------------------------------------------------------------")
         careFunctionCalls() // Adds function scores to blocks
-        for ((f, v) <- functionScores) {
-            println(f + " -> " + v.toString)
-        }
-        println("--------------------------------------------------------------------")
         finalizeBlockScores()
 
         blockScores.foreach(block => {
