@@ -3,7 +3,7 @@ package de.fosd.typechef.cifdeftoif
 import java.io.{File, PrintWriter}
 import java.util
 import java.util.IdentityHashMap
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Files, Paths}
 
 import de.fosd.typechef.conditional.{Choice, One, Opt}
 import de.fosd.typechef.featureexpr._
@@ -87,22 +87,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         calculateLoopScores(ast)
         loopCounter = 0
         granularity(ast)
-        for ((f, v) <- blockScores) {
-            println(f + " -> " + v.toString)
-        }
-        println("--------------------------------------------------------------------")
         calculateBlockScores() // Calculates accumulated block scores for function scores
-        for ((f, v) <- blockScores) {
-            println(f + " -> " + v.toString)
-        }
-        println("--------------------------------------------------------------------")
         calculateFunctionScores() //
         careFunctionCalls() // Adds function scores to blocks
         finalizeBlockScores()
-        for ((f, v) <- blockScores) {
-            println(f + " -> " + v.toString)
-        }
-        println("--------------------------------------------------------------------")
 
         blockScores.foreach(block => {
             if (block._1 != null && blockToStatements.contains(block._1) && block._2 < threshold) {
@@ -1458,7 +1446,30 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             nextFunctionCalls = functionCalls
         }
 
-        val recSet = visitedFunctions.filter(p => p._2).keySet
+        var recSet = visitedFunctions.filter(p => p._2).keySet
+
+        // Removing all function calls that enter the recursion
+        for ((startFunc, calls) <- functionCalledBy) {
+            var functionSet: Set[String] = Set.empty[String]
+            var nextFunctions: Set[String] = calls
+
+            while(nextFunctions.nonEmpty) {
+                var set: Set[String] = Set.empty[String]
+
+                for (f <- nextFunctions) {
+                    if (!functionSet.contains(f) && functionCalledBy.contains(f)) {
+                        functionSet += f
+                        set = set.union(functionCalledBy(f))
+                    }
+                }
+
+                nextFunctions = set
+            }
+
+            if (!functionSet.contains(startFunc)) {
+                recSet -= startFunc
+            }
+        }
 
         if (recSet.isEmpty) {
             None
@@ -1467,13 +1478,30 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    private def careFunctionCalls(): Unit = {
+    var functionCalledBy: Map[String, Set[String]] = Map.empty[String, Set[String]]
 
+    private def calculateFunctionsCalledBy(): Unit = {
+        for ((func, calls) <- globalFunctionCalls) {
+            for (call <- calls) {
+                if (functionCalledBy.contains(call.functionName)) {
+                    var set = functionCalledBy(call.functionName)
+                    set += func
+                    functionCalledBy -= call.functionName
+                    functionCalledBy += (call.functionName -> set)
+                } else {
+                    functionCalledBy += (call.functionName -> Set(func))
+                }
+            }
+        }
+    }
+
+    private def careFunctionCalls(): Unit = {
         var functionRecSets: Set[Set[String]] = Set.empty[Set[String]]
         var recValues: Map[String, List[Double]] = Map.empty[String, List[Double]]
         var recSetValue: Map[String, Double] = Map.empty[String, Double]
 
         if (FUNCTION_ACCUMULATION) {
+            calculateFunctionsCalledBy()
 
             for ((funcLocation, funcCalls) <- globalFunctionCalls) {
                 for (call <- funcCalls) {
@@ -1485,12 +1513,29 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            // Calculate the general value for each function in a recursion set
+            // Calculate the score of a recursion set (contains every possible called function started in the recursion set)
+            // TODO: Can be calculated better regarding the condition of every possible function call line
             for (recSet <- functionRecSets) {
-                var value: Double = 0
+                var calledFunctions: Set[String] = Set.empty[String]
+                var nextFunctions: Set[String] = recSet
 
-                for (func <- recSet) {
-                    value += functionScores(func)
+                while (nextFunctions.nonEmpty) {
+                    var set: Set[String] = Set.empty[String]
+
+                    for (func <- nextFunctions) {
+                        if (!calledFunctions.contains(func) && globalFunctionCalls.contains(func)) {
+                            calledFunctions += func
+                            set = set.union(globalFunctionCalls(func).map(funcCall => funcCall.functionName).toSet)
+                        }
+                    }
+
+                    nextFunctions = set
+                }
+
+                var sum = 0
+
+                for (func <- calledFunctions) {
+                    sum += functionScores(func)
                 }
 
                 for (func <- recSet) {
@@ -1498,11 +1543,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         val list = recValues(func)
 
                         recValues -= func
-                        recValues += (func -> (list ::: List(value)))
+                        recValues += (func -> (list ::: List(sum)))
                     } else {
-                        recValues += (func -> List(value))
+                        recValues += (func -> List(sum))
                     }
                 }
+
             }
 
             // Calculate the value of of each recursion set
@@ -1515,59 +1561,17 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 recSetValue += (entry._1 -> (value / entry._2.length))
             }
-
-            // Remove calls of branch functions in recursion sets
-            for (recursion <- functionRecSets) {
-                for (startFunction <- recursion) {
-                    var visitedFunctions: Map[String, Boolean] = Map.empty[String, Boolean]
-                    var nextFunctionCalls: Set[FuncCall] = Set.empty[FuncCall]
-
-                    if (globalFunctionCalls.contains(startFunction)) {
-                        for (call <- globalFunctionCalls(startFunction)) {
-                            nextFunctionCalls += call
-                        }
-                    }
-
-                    while (nextFunctionCalls.nonEmpty) {
-                        var functionCalls: Set[FuncCall] = Set.empty[FuncCall]
-
-                        for (func <- nextFunctionCalls) {
-                            if (!predefinedFunctionScores.contains(func.functionName)) {
-                                if (globalFunctionCalls.contains(func.functionName)
-                                    && (!visitedFunctions.contains(func.functionName) || !visitedFunctions(func.functionName))) {
-                                    for (call <- globalFunctionCalls(func.functionName)) {
-                                        functionCalls += call
-                                    }
-                                }
-
-                                if (!visitedFunctions.contains(func.functionName)) {
-                                    visitedFunctions += (func.functionName -> false)
-                                } else if (!visitedFunctions(func.functionName)) {
-                                    visitedFunctions -= func.functionName
-                                    visitedFunctions += (func.functionName -> true)
-                                }
-                            }
-                        }
-
-                        nextFunctionCalls = functionCalls
-                    }
-
-                    if (!visitedFunctions.contains(startFunction)) {
-                        recSetValue -= startFunction
-                    }
-                }
-            }
         }
 
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
             if (predefinedFunctionScores.contains(call.functionName))
-                return predefinedFunctionScores(call.functionName)*call.weight
+                return call.weight * predefinedFunctionScores(call.functionName)
 
             if (FUNCTION_ACCUMULATION) {
                 if (recSetValue.contains(call.functionName)) {
                     addScoreCause(call.block, "Recursion")
-                    RECURSIVE_WEIGHT * recSetValue(call.functionName)
+                    RECURSIVE_WEIGHT * call.weight * recSetValue(call.functionName)
                 } else {
                     if (call.condition.and(cond).isSatisfiable(featureModel)) {
                         var sum = functionScores(call.functionName)
@@ -1580,7 +1584,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                         addScoreCause(call.block, "Function")
 
-                        sum
+                        call.weight * sum
                     } else {
                         0
                     }
@@ -1594,7 +1598,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     sum += globalFunctionCalls(call.functionName).size * DEFAULT_FUNCTION_WEIGHT
                 }
 
-                sum
+                call.weight * sum
             }
         }
 
