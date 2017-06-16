@@ -1551,6 +1551,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
         }
 
+        println(functionRecSets.toString)
+        println("-----------------------------------------------------------------")
+
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
             if (predefinedFunctionScores.contains(call.functionName))
@@ -1558,7 +1561,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             if (FUNCTION_ACCUMULATION) {
                 if (recSetValue.contains(call.functionName)) {
-                    addScoreCause(call.block, "Recursion: " + functionRecSets.toString)
+                    addScoreCause(call.block, "Recursion")
                     RECURSIVE_WEIGHT * recSetValue(call.functionName)
                 } else {
                     if (call.condition.and(cond).isSatisfiable(featureModel)) {
