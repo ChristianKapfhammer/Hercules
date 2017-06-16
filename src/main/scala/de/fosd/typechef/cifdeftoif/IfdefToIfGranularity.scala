@@ -87,6 +87,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         calculateLoopScores(ast)
         loopCounter = 0
         granularity(ast)
+        for ((f, v) <- blockScores) {
+            println(f + " -> " + v.toString)
+        }
+        println("--------------------------------------------------------------------")
         calculateBlockScores() // Calculates accumulated block scores for function scores
         for ((f, v) <- blockScores) {
             println(f + " -> " + v.toString)
