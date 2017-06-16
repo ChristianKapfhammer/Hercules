@@ -1425,6 +1425,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         nextFunctionCalls += call
 
+        println("             --- Calculating inital recursion")
         while (nextFunctionCalls.nonEmpty) {
             var functionCalls: Set[FuncCall] = Set.empty[FuncCall]
 
@@ -1455,6 +1456,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         var recSet = visitedFunctions.filter(p => p._2).keySet
 
+        println("             --- Removing function calls")
         // Removing all function calls that enter the recursion
         for ((startFunc, calls) <- functionCalledBy) {
             var functionSet: Set[String] = Set.empty[String]
@@ -1511,7 +1513,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             calculateFunctionsCalledBy()
 
             println("     -- Calculating recursions")
+            var i = 1
             for ((funcLocation, funcCalls) <- globalFunctionCalls) {
+                println("         -- Attempting to calculate recursion " + i.toString + " of " +  globalFunctionCalls.size)
                 for (call <- funcCalls) {
                     getRecSet(call) match {
                         case Some(x) =>
@@ -1524,7 +1528,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             println("     -- Calculating recursion values")
             // Calculate the score of a recursion set (contains every possible called function started in the recursion set)
             // TODO: Can be calculated better regarding the condition of every possible function call line
-            var i = 1
+            i = 1
             for (recSet <- functionRecSets) {
                 println("         -- Evaluating recursion " + i.toString + " of " +  functionRecSets.size)
                 var calledFunctions: Set[String] = Set.empty[String]
