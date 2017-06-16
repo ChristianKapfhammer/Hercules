@@ -1524,7 +1524,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             println("     -- Calculating recursion values")
             // Calculate the score of a recursion set (contains every possible called function started in the recursion set)
             // TODO: Can be calculated better regarding the condition of every possible function call line
+            var i = 1
             for (recSet <- functionRecSets) {
+                println("         -- Evaluating recursion " + i.toString)
                 var calledFunctions: Set[String] = Set.empty[String]
                 var nextFunctions: Set[String] = recSet
 
@@ -1534,7 +1536,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     for (func <- nextFunctions) {
                         if (!calledFunctions.contains(func) && globalFunctionCalls.contains(func)) {
                             calledFunctions += func
-                            set = set.union(globalFunctionCalls(func).map(funcCall => funcCall.functionName).toSet)
+
+                            for (funcCall <- globalFunctionCalls(func)) {
+                                set += funcCall.functionName
+                            }
                         }
                     }
 
@@ -1558,6 +1563,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
+                i += 1
             }
 
             // Calculate the value of of each recursion set
