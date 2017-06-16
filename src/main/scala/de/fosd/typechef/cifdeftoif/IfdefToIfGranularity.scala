@@ -180,10 +180,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/plots_ifs_cases/"
+    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing/"
 
     private def readScatterplotPerformance300AllYesFiles(): Unit = {
-        for (i <- 0 to 299) {
+        for (i <- 0 to 0) {
 
             println("Starting Scatterplot " + i)
             var scatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
@@ -1259,7 +1259,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                 if (i.elifs.isEmpty) {
                                     adjustedWeight = weight / 2
                                 } else {
-                                    adjustedWeight = weight / Math.pow(1.75, i.elifs.size + 2)
+                                    adjustedWeight = weight / Math.pow(2.5, i.elifs.size + 2)
                                 }
                             case SwitchStatement(_, One(CompoundStatement(list))) =>
                                 var amountCases = 0
