@@ -1425,7 +1425,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         nextFunctionCalls += call
 
-        println("             --- Calculating inital recursion")
         while (nextFunctionCalls.nonEmpty) {
             var functionCalls: Set[FuncCall] = Set.empty[FuncCall]
 
@@ -1456,7 +1455,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         var recSet = visitedFunctions.filter(p => p._2).keySet
 
-        println("             --- Removing function calls")
         // Removing all function calls that enter the recursion
         for ((startFunc, calls) <- functionCalledBy) {
             var functionSet: Set[String] = Set.empty[String]
@@ -1523,6 +1521,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         case None =>
                     }
                 }
+                i += 1
             }
 
             println("     -- Calculating recursion values")
