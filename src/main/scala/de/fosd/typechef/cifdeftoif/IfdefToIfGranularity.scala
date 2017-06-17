@@ -41,7 +41,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var RECURSIVE_WEIGHT: Double = 1.0
 
     private var FUNCTION_ACCUMULATION: Boolean = false
-    private var FUNCTION_ACCUMULATION_DEPTH: Int = 0
+    private var FUNCTION_ACCUMULATION_DEPTH: Int = 5
     private var FUNCTION_CALL_WEIGHT: Double = 1.0
 
     private var predefinedFunctionScores: Map[String, Double] = Map.empty[String, Double]
@@ -93,9 +93,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         loopCounter = 0
         println(" - Running general statement counting")
         granularity(ast)
-        for ((f, s) <- functionScores) {
-            println(f + " -> " + s)
-        }
         println(" - Calculating combined block scores")
         calculateBlockScores() // Calculates accumulated block scores for function scores
         println(" - Calculating function scores")
