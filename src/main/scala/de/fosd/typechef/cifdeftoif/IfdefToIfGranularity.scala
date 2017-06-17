@@ -1661,10 +1661,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         }
 
                     } else {
-                        DEFAULT_FUNCTION_WEIGHT
+                        sum = DEFAULT_FUNCTION_WEIGHT
                     }
-
-                    //var sum = functionScores(call.functionName)
 
                     call.weight * sum
                 } else {
