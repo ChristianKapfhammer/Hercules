@@ -40,7 +40,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var GOTO_WEIGHT: Double = 1.0
     private var RECURSIVE_WEIGHT: Double = 1.0
 
-    private var FUNCTION_ACCUMULATION: Boolean = true
+    private var FUNCTION_ACCUMULATION: Boolean = false
+    private var FUNCTION_ACCUMULATION_DEPTH: Int = 0
     private var FUNCTION_CALL_WEIGHT: Double = 1.0
 
     private var predefinedFunctionScores: Map[String, Double] = Map.empty[String, Double]
@@ -657,6 +658,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                             DEFAULT_FUNCTION_WEIGHT = configParts(1).toDouble
                         case "function_accumulation" =>
                             FUNCTION_ACCUMULATION = configParts(1).toBoolean
+                        case "function_accumulation_depth" =>
+                            FUNCTION_ACCUMULATION_DEPTH = configParts(1).toInt
                         case "function_call_weight" =>
                             FUNCTION_CALL_WEIGHT = configParts(1).toDouble
                         case "bucket_size" =>
@@ -1524,7 +1527,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         var recValues: Map[String, List[Double]] = Map.empty[String, List[Double]]
         var recSetValue: Map[String, Double] = Map.empty[String, Double]
 
-        if (FUNCTION_ACCUMULATION) {
+        if (!FUNCTION_ACCUMULATION) {
             calculateFunctionsCalledBy()
 
             println("     -- Calculating recursions")
@@ -1607,7 +1610,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
 
         // Calculate the accumulated costs of a function call
-        def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
+        def getCallValue(call: FuncCall, cond: FeatureExpr, currentDepth: Int): Double = {
             if (predefinedFunctionScores.contains(call.functionName)) {
                 var sum: Double = predefinedFunctionScores(call.functionName)
 
@@ -1618,7 +1621,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 return call.weight * sum
             }
 
-            if (FUNCTION_ACCUMULATION) {
+            if (!FUNCTION_ACCUMULATION) {
                 if (recSetValue.contains(call.functionName)) {
                     addScoreCause(call.block, "Recursion")
                     RECURSIVE_WEIGHT * call.weight * recSetValue(call.functionName)
@@ -1632,7 +1635,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                         if (globalFunctionCalls.contains(call.functionName)) {
                             for (furtherCall <- globalFunctionCalls(call.functionName)) {
-                                sum += getCallValue(furtherCall, cond.and(call.condition))
+                                sum += getCallValue(furtherCall, cond.and(call.condition), currentDepth)
                             }
                         }
 
@@ -1644,15 +1647,34 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
             } else {
-                var sum = functionScores(call.functionName)
+                if (call.condition.and(cond).isSatisfiable(featureModel)) {
+                    var sum: Double = 0.0
 
-                addScoreCause(call.block, "Function")
+                    addScoreCause(call.block, "Function")
 
-                if (globalFunctionCalls.contains(call.functionName)) {
-                    sum += globalFunctionCalls(call.functionName).size * DEFAULT_FUNCTION_WEIGHT
+                    if (currentDepth < FUNCTION_ACCUMULATION_DEPTH) {
+                        sum = functionScores(call.functionName)
+
+                        if (functionCallOffsets.contains(call.functionName)) {
+                            sum += functionCallOffsets(call.functionName)
+                        }
+
+                        if (globalFunctionCalls.contains(call.functionName)) {
+                            for (furtherCall <- globalFunctionCalls(call.functionName)) {
+                                sum += getCallValue(furtherCall, cond.and(call.condition), currentDepth + 1)
+                            }
+                        }
+
+                    } else {
+                        sum = globalFunctionCalls(call.functionName).size * DEFAULT_FUNCTION_WEIGHT
+                    }
+
+                    //var sum = functionScores(call.functionName)
+
+                    call.weight * sum
+                } else {
+                    0
                 }
-
-                call.weight * sum
             }
         }
 
@@ -1665,9 +1687,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         val w = singleBlockScores(call.block)
 
                         singleBlockScores -= call.block
-                        singleBlockScores += (call.block -> (w + FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True)))
+                        singleBlockScores += (call.block -> (w + FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True, 0)))
                     } else {
-                        singleBlockScores += (call.block -> FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True))
+                        singleBlockScores += (call.block -> FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True, 0))
                     }
                 }
             }
