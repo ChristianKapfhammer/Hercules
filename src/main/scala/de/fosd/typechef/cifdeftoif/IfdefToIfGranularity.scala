@@ -1552,7 +1552,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 println("         -- Evaluating recursion " + i.toString + " of " +  functionRecSets.size)
                 var calledFunctions: Set[String] = Set.empty[String]
                 var nextFunctions: Set[String] = recSet
-                var weightModifier: Double = 1.0
 
                 while (nextFunctions.nonEmpty) {
                     var set: Set[String] = Set.empty[String]
@@ -1562,7 +1561,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                             calledFunctions += func
 
                             for (funcCall <- globalFunctionCalls(func)) {
-                                weightModifier = weightModifier * funcCall.weight
                                 set += funcCall.functionName
                             }
                         }
@@ -1588,9 +1586,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         val list = recValues(func)
 
                         recValues -= func
-                        recValues += (func -> (list ::: List(sum*weightModifier)))
+                        recValues += (func -> (list ::: List(sum)))
                     } else {
-                        recValues += (func -> List(sum*weightModifier))
+                        recValues += (func -> List(sum))
                     }
                 }
 
