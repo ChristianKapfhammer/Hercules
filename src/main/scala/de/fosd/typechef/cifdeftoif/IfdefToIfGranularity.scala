@@ -44,6 +44,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var FUNCTION_CALL_WEIGHT: Double = 1.0
 
     private var predefinedFunctionScores: Map[String, Double] = Map.empty[String, Double]
+    private var functionCallOffsets: Map[String, Double] = Map.empty[String, Double]
 
     private var loopScores: Map[Int, Double] = Map.empty[Int, Double]
     private var functionDefs: Set[String] = Set.empty[String]
@@ -79,6 +80,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         dir = outputDir
         readConfigFile()
         readFunctionConfigFile()
+        readFunctionOffsetFile()
 
         codeAnalysis(ast)
 
@@ -673,6 +675,18 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 if (configParts.size == 2 && !predefinedFunctionScores.contains(configParts(0))) {
                     predefinedFunctionScores += (configParts(0) -> configParts(1).toDouble)
+                }
+            }
+        }
+    }
+
+    private def readFunctionOffsetFile(): Unit = {
+        if (Files.exists(Paths.get("./function_offsets.txt"))) {
+            for (c <- Source.fromFile("function_offsets.txt").getLines()) {
+                val configParts = c.split(" ")
+
+                if (configParts.size == 2 && !functionCallOffsets.contains(configParts(0))) {
+                    functionCallOffsets += (configParts(0) -> configParts(1).toDouble)
                 }
             }
         }
@@ -1535,6 +1549,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 println("         -- Evaluating recursion " + i.toString + " of " +  functionRecSets.size)
                 var calledFunctions: Set[String] = Set.empty[String]
                 var nextFunctions: Set[String] = recSet
+                var weightModifier: Double = 1.0
 
                 while (nextFunctions.nonEmpty) {
                     var set: Set[String] = Set.empty[String]
@@ -1544,6 +1559,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                             calledFunctions += func
 
                             for (funcCall <- globalFunctionCalls(func)) {
+                                weightModifier = weightModifier * funcCall.weight
                                 set += funcCall.functionName
                             }
                         }
@@ -1555,7 +1571,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 var sum: Double = 0.0
 
                 for (func <- calledFunctions) {
-                    sum += functionScores(func)
+                    var value: Double = functionScores(func)
+
+                    if (functionCallOffsets.contains(func)) {
+                        value += functionCallOffsets(func)
+                    }
+
+                    sum += value
                 }
 
                 for (func <- recSet) {
@@ -1563,9 +1585,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         val list = recValues(func)
 
                         recValues -= func
-                        recValues += (func -> (list ::: List(sum)))
+                        recValues += (func -> (list ::: List(sum*weightModifier)))
                     } else {
-                        recValues += (func -> List(sum))
+                        recValues += (func -> List(sum*weightModifier))
                     }
                 }
 
@@ -1584,20 +1606,17 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
         }
 
-        val pw = new PrintWriter(new File(dir + "recursions.txt"))
-        var string = ""
-
-        for (rec <- functionRecSets) {
-            string = string + rec.toString + "\n"
-        }
-
-        pw.write(string)
-        pw.close()
-
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr): Double = {
-            if (predefinedFunctionScores.contains(call.functionName))
-                return call.weight * predefinedFunctionScores(call.functionName)
+            if (predefinedFunctionScores.contains(call.functionName)) {
+                var sum: Double = predefinedFunctionScores(call.functionName)
+
+                if (functionCallOffsets.contains(call.functionName)) {
+                    sum += functionCallOffsets(call.functionName)
+                }
+
+                return call.weight * sum
+            }
 
             if (FUNCTION_ACCUMULATION) {
                 if (recSetValue.contains(call.functionName)) {
@@ -1605,7 +1624,11 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     RECURSIVE_WEIGHT * call.weight * recSetValue(call.functionName)
                 } else {
                     if (call.condition.and(cond).isSatisfiable(featureModel)) {
-                        var sum = functionScores(call.functionName)
+                        var sum: Double = functionScores(call.functionName)
+
+                        if (functionCallOffsets.contains(call.functionName)) {
+                            sum += functionCallOffsets(call.functionName)
+                        }
 
                         if (globalFunctionCalls.contains(call.functionName)) {
                             for (furtherCall <- globalFunctionCalls(call.functionName)) {
