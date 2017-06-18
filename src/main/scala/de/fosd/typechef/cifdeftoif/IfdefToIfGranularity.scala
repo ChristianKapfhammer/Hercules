@@ -1567,6 +1567,16 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 i += 1
             }
 
+            val pw = new PrintWriter(new File(dir + "recursions.txt"))
+            var string = ""
+
+            for (rec <- functionRecSets) {
+                string = string + rec.toString + "\n"
+            }
+
+            pw.write(string)
+            pw.close()
+
             // Little checking
             if (functionRecSets.exists(set1 => functionRecSets.exists(set2 => set1 != set2 && set1.intersect(set2).nonEmpty))) {
                 println("OH! There is an intersection! Not good...")
@@ -1675,7 +1685,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         // Add function call costs to the corresponding blocks (single score)
         println("     -- Adding functions calls to single blocks")
         var i = 1
-        for (value <- globalFunctionCalls.values) {
+        /*for (value <- globalFunctionCalls.values) {
             println("         --- Adding function calls of function " + i.toString + " of " +  globalFunctionCalls.size)
             for (call <- value) {
                 if (call.condition != FeatureExprFactory.True) {
@@ -1691,7 +1701,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             }
             i += 1
-        }
+        }*/
     }
 
     private def finalizeBlockScores() : Unit = {
