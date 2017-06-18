@@ -1605,7 +1605,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             if (!FUNCTION_ACCUMULATION) {
                 var sum: Double = 0.0
 
-                if (recSetValue.contains(call.functionName)) {
+                if (recSetValue.contains(call.functionName) && !visitedRecursionFunctions.contains(call.functionName)) {
                     addScoreCause(call.block, "Recursion")
                     sum += RECURSIVE_WEIGHT * recSetValue(call.functionName)
 
