@@ -1588,6 +1588,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
         }
 
+        var visitedRecursionFunctions: Set[String] = Set.empty[String]
+
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr, currentDepth: Int): Double = {
             if (predefinedFunctionScores.contains(call.functionName)) {
@@ -1608,6 +1610,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     sum += RECURSIVE_WEIGHT * recSetValue(call.functionName)
 
                     val recSet = functionRecSetMapping(call.functionName)
+                    visitedRecursionFunctions = visitedRecursionFunctions.union(recSet)
 
                     for (func <- recSet) {
                         for (c <- globalFunctionCalls(func)) {
@@ -1676,6 +1679,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             println("         --- Adding function calls of function " + i.toString + " of " +  globalFunctionCalls.size)
             for (call <- value) {
                 if (call.condition != FeatureExprFactory.True) {
+                    visitedRecursionFunctions = Set.empty[String]
                     if (singleBlockScores.contains(call.block)) {
                         val w = singleBlockScores(call.block)
 
