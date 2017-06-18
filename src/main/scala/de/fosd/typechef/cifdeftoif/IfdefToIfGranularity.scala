@@ -1572,9 +1572,29 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             pw.write(string)
             pw.close()
 
-            // Little checking
-            if (functionRecSets.exists(set1 => functionRecSets.exists(set2 => set1 != set2 && set1.intersect(set2).nonEmpty))) {
-                println("OH! There is an intersection! Not good...")
+            // If there are still intersections take the most general one
+            while (functionRecSets.exists(set1 => functionRecSets.exists(set2 => set1 != set2 && set1.intersect(set2).nonEmpty))) {
+                var recSets: Set[Set[String]] = functionRecSets
+
+                for (set1 <- functionRecSets) {
+                    for (set2 <- functionRecSets) {
+                        val intersection = set1.intersect(set2)
+
+                        if (intersection.nonEmpty) {
+                            if (set1 == intersection) {
+                                recSets -= set2
+                            } else if (set2 == intersection) {
+                                recSets -= set1
+                            } else {
+                                recSets -= set1
+                                recSets -= set2
+                                recSets += intersection
+                            }
+                        }
+                    }
+                }
+
+                functionRecSets = recSets
             }
 
             println("     -- Calculating recursion values")
@@ -1610,17 +1630,20 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             if (!FUNCTION_ACCUMULATION) {
                 var sum: Double = 0.0
 
-                if (recSetValue.contains(call.functionName) && !visitedRecursionFunctions.contains(call.functionName)) {
+                if (recSetValue.contains(call.functionName)) {
                     addScoreCause(call.block, "Recursion")
                     sum += RECURSIVE_WEIGHT * recSetValue(call.functionName)
 
-                    val recSet = functionRecSetMapping(call.functionName)
-                    visitedRecursionFunctions = visitedRecursionFunctions.union(recSet)
+                    if (!visitedRecursionFunctions.contains(call.functionName)) {
 
-                    for (func <- recSet) {
-                        for (c <- globalFunctionCalls(func)) {
-                            if (!recSet.contains(c.functionName)) {
-                                sum += getCallValue(c, cond.and(call.condition), currentDepth)
+                        val recSet = functionRecSetMapping(call.functionName)
+                        visitedRecursionFunctions = visitedRecursionFunctions.union(recSet)
+
+                        for (func <- recSet) {
+                            for (c <- globalFunctionCalls(func)) {
+                                if (!recSet.contains(c.functionName)) {
+                                    sum += getCallValue(c, cond.and(call.condition), currentDepth)
+                                }
                             }
                         }
                     }
@@ -1680,7 +1703,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         // Add function call costs to the corresponding blocks (single score)
         println("     -- Adding functions calls to single blocks")
         var i = 1
-        /*for (value <- globalFunctionCalls.values) {
+        for (value <- globalFunctionCalls.values) {
             println("         --- Adding function calls of function " + i.toString + " of " +  globalFunctionCalls.size)
             for (call <- value) {
                 if (call.condition != FeatureExprFactory.True) {
@@ -1696,7 +1719,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             }
             i += 1
-        }*/
+        }
     }
 
     private def finalizeBlockScores() : Unit = {
