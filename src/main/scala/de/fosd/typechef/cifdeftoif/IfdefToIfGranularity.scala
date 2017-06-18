@@ -1438,7 +1438,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private def getRecSet(call: FuncCall): Option[Set[String]] = {
         var visitedFunctions: Map[String, Boolean] = Map.empty[String, Boolean]
         var nextFunctionCalls: Set[FuncCall] = Set.empty[FuncCall]
-        var recCondition = FeatureExprFactory.True
 
         nextFunctionCalls += call
 
@@ -1447,22 +1446,18 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             for (func <- nextFunctionCalls) {
                 if (!predefinedFunctionScores.contains(func.functionName)) {
-                    if (recCondition.and(func.condition).isSatisfiable(featureModel)) {
-                        recCondition = recCondition.and(func.condition)
-
-                        if (globalFunctionCalls.contains(func.functionName)
-                            && (!visitedFunctions.contains(func.functionName) || !visitedFunctions(func.functionName))) {
-                            for (call <- globalFunctionCalls(func.functionName)) {
-                                functionCalls += call
-                            }
+                    if (globalFunctionCalls.contains(func.functionName)
+                        && (!visitedFunctions.contains(func.functionName) || !visitedFunctions(func.functionName))) {
+                        for (call <- globalFunctionCalls(func.functionName)) {
+                            functionCalls += call
                         }
+                    }
 
-                        if (!visitedFunctions.contains(func.functionName)) {
-                            visitedFunctions += (func.functionName -> false)
-                        } else if (!visitedFunctions(func.functionName)) {
-                            visitedFunctions -= func.functionName
-                            visitedFunctions += (func.functionName -> true)
-                        }
+                    if (!visitedFunctions.contains(func.functionName)) {
+                        visitedFunctions += (func.functionName -> false)
+                    } else if (!visitedFunctions(func.functionName)) {
+                        visitedFunctions -= func.functionName
+                        visitedFunctions += (func.functionName -> true)
                     }
                 }
             }
@@ -1685,7 +1680,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         // Add function call costs to the corresponding blocks (single score)
         println("     -- Adding functions calls to single blocks")
         var i = 1
-        /*for (value <- globalFunctionCalls.values) {
+        for (value <- globalFunctionCalls.values) {
             println("         --- Adding function calls of function " + i.toString + " of " +  globalFunctionCalls.size)
             for (call <- value) {
                 if (call.condition != FeatureExprFactory.True) {
@@ -1701,7 +1696,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             }
             i += 1
-        }*/
+        }
     }
 
     private def finalizeBlockScores() : Unit = {
