@@ -1142,6 +1142,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     call.weight * sum
                 } else {
                     if (call.condition.and(cond).isSatisfiable(featureModel)) {
+                        println(call.functionName)
+
                         var sum: Double = functionScores(call.functionName)
                         visitedCalledFunctions += call.functionName
 
