@@ -472,8 +472,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             id = featureCounter(expr)
         }
 
-        expr.toString() + "_" + id
-        //expr.toString() + "_" + java.util.UUID.randomUUID.toString
+        //expr.toString() + "_" + id
+        expr.toString() + "_" + java.util.UUID.randomUUID.toString
     }
 
     private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
@@ -1031,6 +1031,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     }
 
     var visitedCalledFunctions: Set[String] = Set.empty[String]
+    var callCauses: Set[String] = Set.empty[String]
 
     private def careFunctionCalls(): Unit = {
         var functionRecSets: Set[Set[String]] = Set.empty[Set[String]]
@@ -1125,10 +1126,17 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
 
                 if (recSetValue.contains(call.functionName)) {
-                    addScoreCause(call.block, "Recursion")
-                    sum += RECURSIVE_WEIGHT * recSetValue(call.functionName)
-
                     val recSet = functionRecSetMapping(call.functionName)
+
+                    callCauses += "Recursion"
+
+                    for (func <- recSet) {
+                        for (block <- functionBlocks(func)) {
+                            callCauses = callCauses.union(scoreCauses(block))
+                        }
+                    }
+
+                    sum += RECURSIVE_WEIGHT * recSetValue(call.functionName)
                     visitedCalledFunctions = visitedCalledFunctions.union(recSet)
 
                     for (func <- recSet) {
@@ -1143,7 +1151,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 } else {
                     if (call.condition.and(cond).isSatisfiable(featureModel)) {
                         var sum: Double = functionScores(call.functionName)
-                        //visitedCalledFunctions += call.functionName
+
+                        callCauses += "Function"
+
+                        for (block <- functionBlocks(call.functionName)) {
+                            callCauses = callCauses.union(scoreCauses(block))
+                        }
 
                         if (functionCallOffsets.contains(call.functionName)) {
                             sum += functionCallOffsets(call.functionName)
@@ -1155,8 +1168,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                             }
                         }
 
-                        addScoreCause(call.block, "Function")
-
                         call.weight * sum
                     } else {
                         0
@@ -1166,7 +1177,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 if (call.condition.and(cond).isSatisfiable(featureModel)) {
                     var sum: Double = 0.0
 
-                    addScoreCause(call.block, "Function")
+                    callCauses += "Function"
+
+                    for (block <- functionBlocks(call.functionName)) {
+                        callCauses = callCauses.union(scoreCauses(block))
+                    }
+
 
                     if (currentDepth < FUNCTION_ACCUMULATION_DEPTH) {
                         sum = functionScores(call.functionName)
@@ -1200,6 +1216,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             for (call <- value) {
                 if (call.condition != FeatureExprFactory.True) {
                     visitedCalledFunctions = Set.empty[String]
+                    callCauses = Set.empty[String]
                     if (singleBlockScores.contains(call.block)) {
                         val w = singleBlockScores(call.block)
 
@@ -1207,6 +1224,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         singleBlockScores += (call.block -> (w + FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True, 0)))
                     } else {
                         singleBlockScores += (call.block -> FUNCTION_CALL_WEIGHT * getCallValue(call, FeatureExprFactory.True, 0))
+                    }
+
+                    for (cause <- callCauses) {
+                        addScoreCause(call.block, cause)
                     }
                 }
             }
