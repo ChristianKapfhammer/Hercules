@@ -242,8 +242,7 @@ trait IfdefToIfGranularityInterface {
             statementToBlock.put(stmt, currBlock)
 
             // Update statementMapping
-            val blockNameParts = currBlock.split("_")
-            statementMapping.put(stmt, blockNameParts(blockNameParts.size - 1))
+            statementMapping.put(stmt, currBlock)
 
             // Update blockCapsuling
             for(key <- currentBlockMapping.keySet.filter(p => p != currentExpr)) {
@@ -1300,7 +1299,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         ignoredStatements
     }
 
-    private def granularity(obj: Any, currentBlocks: Set[String] = Set.empty[String], currentFunction: String = null): Unit = {
+    private def granularity(obj: Any, currentBlock: String = null, currentFunction: String = null): Unit = {
         obj match {
             case x: IfStatement =>
             case SwitchStatement(expr: Expr, One(CompoundStatement(list))) =>
@@ -1315,34 +1314,34 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
-                granularity(expr, currentBlocks, currentFunction)
-                granularity(list, currentBlocks, currentFunction)
+                granularity(expr, currentBlock, currentFunction)
+                granularity(list, currentBlock, currentFunction)
 
             case x: ForStatement =>
-                var blocks: Set[String] = currentBlocks
+                var block: String = currentBlock
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, currentFunction)
+                        granularity(y, block, currentFunction)
                     }
                 }
 
             case x: WhileStatement =>
-                var blocks: Set[String] = currentBlocks
+                var block: String = currentBlock
 
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, currentFunction)
+                        granularity(y, block, currentFunction)
                     }
                 }
 
             case x: DoStatement =>
-                var blocks: Set[String] = currentBlocks
+                var block: String = currentBlock
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, currentFunction)
+                        granularity(y, block, currentFunction)
                     }
                 }
 
@@ -1352,7 +1351,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, currentBlocks, currentFunction)
+                        granularity(y, currentBlock, currentFunction)
                     }
                 }
 
@@ -1367,8 +1366,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                     case PostfixExpr(p: Id, s: FunctionCall) => // Function call
                         val funcName: String = p.name
 
-                        for (block <- currentBlocks) {
-                            val tuple = new FuncCall(funcName, block, blockToExpr(block), 1.0)
+                        if (currentBlock != null) {
+                            val tuple = new FuncCall(funcName, currentBlock, blockToExpr(currentBlock), 1.0)
                             if (globalFunctionCalls.contains(currentFunction)) {
                                 val list = globalFunctionCalls(currentFunction)
 
@@ -1377,9 +1376,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                             } else {
                                 globalFunctionCalls += (currentFunction -> List(tuple))
                             }
-                        }
-
-                        if (currentBlocks.isEmpty) {
+                        } else {
                             val tuple = new FuncCall(funcName, "True", FeatureExprFactory.True, 1.0)
                             if (globalFunctionCalls.contains(currentFunction)) {
                                 val list = globalFunctionCalls(currentFunction)
@@ -1396,22 +1393,22 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, currentBlocks, functionDef)
+                        granularity(y, currentBlock, functionDef)
                     }
                 }
             case x: Opt[_] =>
-                granularity(x.entry, currentBlocks, currentFunction)
+                granularity(x.entry, currentBlock, currentFunction)
             case x: List[_] =>
                 for (elem <- x) {
-                    granularity(elem, currentBlocks, currentFunction)
+                    granularity(elem, currentBlock, currentFunction)
                 }
             case Some(x) =>
-                granularity(x, currentBlocks, currentFunction)
+                granularity(x, currentBlock, currentFunction)
             case x: One[_] =>
-                granularity(x.value, currentBlocks, currentFunction)
+                granularity(x.value, currentBlock, currentFunction)
             case x: Choice[_] =>
-                granularity(x.thenBranch, currentBlocks, currentFunction)
-                granularity(x.elseBranch, currentBlocks, currentFunction)
+                granularity(x.thenBranch, currentBlock, currentFunction)
+                granularity(x.elseBranch, currentBlock, currentFunction)
             case None =>
             case o =>
         }
