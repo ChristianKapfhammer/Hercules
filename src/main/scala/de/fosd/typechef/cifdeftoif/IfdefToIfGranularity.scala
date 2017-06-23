@@ -1,7 +1,6 @@
 package de.fosd.typechef.cifdeftoif
 
 import java.io.{File, PrintWriter}
-import java.util
 import java.util.IdentityHashMap
 import java.nio.file.{Files, Paths}
 
@@ -13,21 +12,420 @@ import scala.io.Source
 
 trait IfdefToIfGranularityInterface {
 
+    class FuncCall(var functionName: String, var block: String, var condition: FeatureExpr, var weight: Double) {}
+
+    // in which function is the call? -> (what function is called?, which condition?, which weight?)
+    protected var globalFunctionCalls: Map[String, List[FuncCall]] = Map.empty[String, List[FuncCall]]
     protected var statementMapping: IdentityHashMap[Any, String] = new IdentityHashMap[Any, String]()
+    protected val statementToBlock: IdentityHashMap[Statement, String] = new IdentityHashMap[Statement, String]()
+    protected var blockToStatements: Map[String, IdentityHashMap[Statement, Statement]] = Map.empty[String, IdentityHashMap[Statement, Statement]]
+    protected var functionBlocks: Map[String, Set[String]] = Map.empty[String, Set[String]]
+    protected var blockToExpr: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
+    protected var blockCapsuling: Map[String, Set[String]] = Map.empty[String, Set[String]]
     protected var featureModel: FeatureModel = _
+    protected var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     protected var dir: String = ""
+
+    private var functionCalledBy: Map[String, Set[String]] = Map.empty[String, Set[String]]
 
     def getStatementMapping(): IdentityHashMap[Any, String] = {
         statementMapping
+    }
+
+    // Global for block mapping calculation
+    private var currentBlockMapping: Map[FeatureExpr, String] = Map.empty[FeatureExpr, String]
+
+    protected def calculateBlockMapping(obj: Any, currentBlock: FeatureExpr = FeatureExprFactory.True, currentFunction: String = null): Unit = {
+        obj match {
+            case x: AST =>
+
+                var function = currentFunction
+
+                if (function == null) {
+                    currentBlockMapping = Map.empty[FeatureExpr, String]
+                }
+
+                obj match {
+                    case funcDef: FunctionDef =>
+                        function = funcDef.getName
+                    case o =>
+                }
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        calculateBlockMapping(y, currentBlock, function)
+                    }
+                }
+            case x: Opt[_] =>
+                if (currentFunction != null || x.condition == FeatureExprFactory.True) {
+
+                    // There are no measurement functions for DeclarationStatements in general. We have to filter them
+                    // to look at only the important blocks
+                    x.entry match {
+                        case _: DeclarationStatement =>
+                            calculateBlockMapping(x.entry, currentBlock, currentFunction)
+                        case s: Statement =>
+                            var cond = currentBlock.&(x.condition)
+
+                            x.entry match {
+                                case i: IfStatement =>
+                                    i.condition match {
+                                        case c: Choice[_] =>
+                                            cond = cond.&(c.condition)
+                                        case One(n: NAryExpr) =>
+                                            var optFound = false
+                                            for (i <- n.others
+                                                 if !optFound) {
+                                                if (i.condition != FeatureExprFactory.True) {
+                                                    cond = cond.&(i.condition)
+                                                    optFound = true
+                                                }
+                                            }
+                                        case _ =>
+                                    }
+                                case e: ElifStatement => // ElifStatement is no Statement (?!?)
+                                    e.condition match {
+                                        case c: Choice[_] =>
+                                            cond = cond.&(c.condition)
+                                        case One(n: NAryExpr) =>
+                                            var optFound = false
+                                            for (i <- n.others
+                                                 if !optFound) {
+                                                if (i.condition != FeatureExprFactory.True) {
+                                                    cond = cond.&(i.condition)
+                                                    optFound = true
+                                                }
+                                            }
+                                        case _ =>
+                                    }
+                                case w: WhileStatement =>
+                                    w.s match {
+                                        case c: Choice[_] =>
+                                            cond = cond.&(c.condition)
+                                        case One(n: NAryExpr) =>
+                                            var optFound = false
+                                            for (i <- n.others
+                                                 if !optFound) {
+                                                if (i.condition != FeatureExprFactory.True) {
+                                                    cond = cond.&(i.condition)
+                                                    optFound = true
+                                                }
+                                            }
+                                        case _ =>
+                                    }
+                                case d: DoStatement =>
+                                    d.s match {
+                                        case c: Choice[_] =>
+                                            cond = cond.&(c.condition)
+                                        case One(n: NAryExpr) =>
+                                            var optFound = false
+                                            for (i <- n.others
+                                                 if !optFound) {
+                                                if (i.condition != FeatureExprFactory.True) {
+                                                    cond = cond.&(i.condition)
+                                                    optFound = true
+                                                }
+                                            }
+                                        case _ =>
+                                    }
+                                case _ =>
+
+                            }
+
+                            updateBlockMapping(cond, s)
+
+                            if (cond != FeatureExprFactory.True) {
+                                val block = currentBlockMapping(cond)
+
+                                if (blockToStatements.contains(block)) {
+                                    val map = blockToStatements(block)
+                                    map.put(s, s)
+
+                                    blockToStatements -= block
+                                    blockToStatements += (block -> map)
+                                } else {
+                                    val map = new IdentityHashMap[Statement, Statement]()
+                                    map.put(s, s)
+
+                                    blockToStatements += (block -> map)
+                                }
+
+                                if (functionBlocks.contains(currentFunction)) {
+                                    if (!functionBlocks(currentFunction).contains(block)) {
+                                        var funcBlocks = functionBlocks(currentFunction)
+                                        funcBlocks += block
+
+                                        functionBlocks -= currentFunction
+                                        functionBlocks += (currentFunction -> funcBlocks)
+                                    }
+                                } else {
+                                    var funcBlocks = Set.empty[String]
+                                    funcBlocks += block
+
+                                    functionBlocks += (currentFunction -> funcBlocks)
+                                }
+
+                                calculateBlockMapping(x.entry, cond, currentFunction)
+                            } else {
+                                calculateBlockMapping(x.entry, cond, currentFunction)
+                            }
+                        case e: ElifStatement =>
+                            var cond = currentBlock
+                            e.condition match {
+                                case c: Choice[_] =>
+                                    cond = cond.&(c.condition)
+                                case _ =>
+                            }
+                            calculateBlockMapping(x.entry, cond, currentFunction)
+                        case o =>
+                            calculateBlockMapping(x.entry, currentBlock, currentFunction)
+                    }
+                }
+            case One(x) =>
+                calculateBlockMapping(x, currentBlock, currentFunction)
+            case x: Choice[_] =>
+                calculateBlockMapping(x.thenBranch, currentBlock.&(x.condition), currentFunction)
+                calculateBlockMapping(x.elseBranch, currentBlock.&(x.condition.not()), currentFunction)
+            case x: List[_] =>
+                for (elem <- x) {
+                    calculateBlockMapping(elem, currentBlock, currentFunction)
+                }
+            case Some(x) =>
+                calculateBlockMapping(x, currentBlock, currentFunction)
+            case None =>
+            case o =>
+        }
+    }
+
+    private def createBlockName(expr: FeatureExpr): String = {
+        var id = 0
+        if(featureCounter.contains(expr)) {
+            id = featureCounter(expr)
+        }
+
+        contextToReadableString(expr) + "_" + id
+        //expr.toString() + "_" + java.util.UUID.randomUUID.toString
+    }
+
+    private def contextToReadableString(context: FeatureExpr): String = {
+        val regexPattern = "(defined|definedEx)\\(([a-zA-Z_0-9]+)\\)".r
+        return regexPattern replaceAllIn(context.toTextExpr, "$2")
+    }
+
+    private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
+        if (currentExpr == FeatureExprFactory.True) {
+            currentBlockMapping = Map.empty[FeatureExpr, String]
+        } else {
+            var keysToRemove = Set.empty[FeatureExpr]
+
+            for (key <- currentBlockMapping.keySet.filter(p => p != currentExpr)) {
+                // Check if currentExpr is new block in currentBlocks
+                if (!(key.collectDistinctFeatureObjects subsetOf currentExpr.collectDistinctFeatureObjects)
+                    || !currentExpr.and(key).implies(key).isTautology() || key.implies(currentExpr.and(key)).isTautology()) {
+                    keysToRemove += key
+                }
+            }
+
+            for (key <- keysToRemove) {
+                currentBlockMapping -= key
+            }
+
+            if (!currentBlockMapping.contains(currentExpr)) {
+                val newBlock = createBlockName(currentExpr)
+                currentBlockMapping += (currentExpr -> newBlock)
+                blockToExpr += (newBlock -> currentExpr)
+            }
+
+            val currBlock = currentBlockMapping(currentExpr)
+
+            //exprToBlock.put(currentExpr, currBlock)
+            statementToBlock.put(stmt, currBlock)
+
+            // Update statementMapping
+            val blockNameParts = currBlock.split("_")
+            statementMapping.put(stmt, blockNameParts(blockNameParts.size - 1))
+
+            // Update blockCapsuling
+            for(key <- currentBlockMapping.keySet.filter(p => p != currentExpr)) {
+                val block = currentBlockMapping(key)
+
+                if (blockCapsuling.contains(block)) {
+                    var set = blockCapsuling(block)
+
+                    if (!set.contains(currBlock)) {
+                        set += currBlock
+                        blockCapsuling -= block
+                        blockCapsuling += (block -> set)
+                    }
+                } else {
+                    var set = Set.empty[String]
+                    set += currBlock
+
+                    blockCapsuling += (block -> set)
+                }
+            }
+
+            // Update feature counter
+            if (keysToRemove.nonEmpty || !blockToStatements.contains(currBlock)) {
+                var ftCounter = 0
+
+                if (featureCounter.contains(currentExpr)) {
+                    ftCounter = featureCounter(currentExpr)
+
+                    featureCounter -= currentExpr
+                }
+
+                featureCounter += (currentExpr -> (ftCounter + 1))
+            }
+        }
+    }
+
+    private def getRecSet(call: FuncCall): Option[Set[String]] = {
+        var visitedFunctions: Map[String, Boolean] = Map.empty[String, Boolean]
+        var nextFunctionCalls: Set[FuncCall] = Set.empty[FuncCall]
+
+        nextFunctionCalls += call
+
+        while (nextFunctionCalls.nonEmpty) {
+            var functionCalls: Set[FuncCall] = Set.empty[FuncCall]
+
+            for (func <- nextFunctionCalls) {
+                if (globalFunctionCalls.contains(func.functionName)
+                    && (!visitedFunctions.contains(func.functionName) || !visitedFunctions(func.functionName))) {
+                    for (call <- globalFunctionCalls(func.functionName)) {
+                        functionCalls += call
+                    }
+                }
+
+                if (!visitedFunctions.contains(func.functionName)) {
+                    visitedFunctions += (func.functionName -> false)
+                } else if (!visitedFunctions(func.functionName)) {
+                    visitedFunctions -= func.functionName
+                    visitedFunctions += (func.functionName -> true)
+                }
+            }
+
+            nextFunctionCalls = functionCalls
+        }
+
+        var recSet = visitedFunctions.filter(p => p._2).keySet
+
+        // Removing all function calls that are no part of any recursion, Result: Set of (possibly multiple) recursions
+        for ((startFunc, calls) <- functionCalledBy) {
+            var functionSet: Set[String] = Set.empty[String]
+            var nextFunctions: Set[String] = calls
+
+            while(nextFunctions.nonEmpty) {
+                var set: Set[String] = Set.empty[String]
+
+                for (f <- nextFunctions) {
+                    if (!functionSet.contains(f) && functionCalledBy.contains(f)) {
+                        functionSet += f
+                        set = set.union(functionCalledBy(f))
+                    }
+                }
+
+                nextFunctions = set
+            }
+
+            if (!functionSet.contains(startFunc)) {
+                recSet -= startFunc
+            }
+        }
+
+        if (recSet.contains(call.functionName)) {
+            // Get the one recursion that contains the call parameter
+
+            var functionSet: Set[String] = Set.empty[String]
+            var nextFunctions: Set[String] = Set(call.functionName)
+
+            while(nextFunctions.nonEmpty) {
+                var set: Set[String] = Set.empty[String]
+
+                for (f <- nextFunctions) {
+                    if (!functionSet.contains(f) && functionCalledBy.contains(f)) {
+                        functionSet += f
+                        set = set.union(functionCalledBy(f))
+                    }
+                }
+
+                nextFunctions = set
+            }
+
+            Some(recSet.intersect(functionSet))
+
+        } else {
+            None
+        }
+
+    }
+
+    private def calculateFunctionsCalledBy(): Unit = {
+        for ((func, calls) <- globalFunctionCalls) {
+            for (call <- calls) {
+                if (functionCalledBy.contains(call.functionName)) {
+                    var set = functionCalledBy(call.functionName)
+                    set += func
+                    functionCalledBy -= call.functionName
+                    functionCalledBy += (call.functionName -> set)
+                } else {
+                    functionCalledBy += (call.functionName -> Set(func))
+                }
+            }
+        }
+    }
+
+    protected def calculateRecursiveSets(): Set[Set[String]] = {
+        var functionRecSets: Set[Set[String]] = Set.empty[Set[String]]
+
+        calculateFunctionsCalledBy()
+
+        println("     -- Calculating recursions")
+        var i = 1
+        var visitedFunctions: Set[String] = Set.empty[String]
+
+        for ((funcLocation, funcCalls) <- globalFunctionCalls) {
+            println("         --- Attempting to calculate recursion: Evaluating calls of function  " + i.toString + " of " +  globalFunctionCalls.size)
+            for (call <- funcCalls) {
+                if (!visitedFunctions.contains(call.functionName) && functionRecSets.forall(set => !set.contains(call.functionName))) {
+                    visitedFunctions += call.functionName
+
+                    getRecSet(call) match {
+                        case Some(x) =>
+                            functionRecSets += x
+                        case None =>
+                    }
+                }
+            }
+            i += 1
+        }
+
+        // If there are still intersections take the most general one
+        while (functionRecSets.exists(set1 => functionRecSets.exists(set2 => set1 != set2 && set1.intersect(set2).nonEmpty))) {
+            var recSets: Set[Set[String]] = functionRecSets
+
+            for (set1 <- functionRecSets) {
+                for (set2 <- functionRecSets) {
+                    val intersection = set1.intersect(set2)
+
+                    if (set1 != set2 && intersection.nonEmpty) {
+                        recSets -= set1
+                        recSets -= set2
+                        recSets += intersection
+                    }
+                }
+            }
+
+            functionRecSets = recSets
+        }
+
+        functionRecSets
     }
 
     def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int): IdentityHashMap[Any, Boolean]
 }
 
 trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IOUtilities {
-
-    class FuncCall(var functionName: String, var block: String, var condition: FeatureExpr, var weight: Double) {}
-    class IfCall(var statement: Any, var block: String, var condition: FeatureExpr, var weight: Double) {}
 
     private var BUCKET_SIZE: Int = 5
     private var DEFAULT_FUNCTION_WEIGHT = 1.0
@@ -50,17 +448,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var loopScores: Map[Int, Double] = Map.empty[Int, Double]
     private var functionDefs: Set[String] = Set.empty[String]
     private var functionScores: Map[String, Double] = Map.empty[String, Double]
-    private var functionBlocks: Map[String, Set[String]] = Map.empty[String, Set[String]]
-    // in which function is the call? -> (what function is called?, which condition?, which weight?)
-    private var globalFunctionCalls: Map[String, List[FuncCall]] = Map.empty[String, List[FuncCall]]
-    private var globalIfStatements: Map[Any, Set[IfCall]] = Map.empty[Any, Set[IfCall]]
-    private var blockToExpr: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
-    private val statementToBlock: IdentityHashMap[Statement, String] = new IdentityHashMap[Statement, String]()
-    private var blockToStatements: Map[String, IdentityHashMap[Statement, Statement]] = Map.empty[String, IdentityHashMap[Statement, Statement]]
-    private var blockCapsuling: Map[String, Set[String]] = Map.empty[String, Set[String]]
     private var blockScores: Map[String, Double] = Map.empty[String, Double]
     private var singleBlockScores: Map[String, Double] = Map.empty[String, Double]
-    private var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     private var loopCounter: Int = 0
 
     private var additionGeneralCounter: Int = 0
@@ -85,7 +474,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         codeAnalysis(ast)
 
-        // Order is important, blockMapping -> loopScores -> generalGranularity -> blocks -> functions -> function calls
         println(" - Calculating block mapping")
         calculateBlockMapping(ast)
         println(" - Calculating loop scores")
@@ -301,254 +689,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    // Global for block mapping calculation
-    var currentBlockMapping: Map[FeatureExpr, String] = Map.empty[FeatureExpr, String]
-
-    private def calculateBlockMapping(obj: Any, currentBlock: FeatureExpr = FeatureExprFactory.True, currentFunction: String = null): Unit = {
-        obj match {
-            case x: AST =>
-
-                var function = currentFunction
-
-                if (function == null) {
-                    currentBlockMapping = Map.empty[FeatureExpr, String]
-                }
-
-                obj match {
-                    case funcDef: FunctionDef =>
-                        function = funcDef.getName
-                    case o =>
-                }
-
-                if (x.productArity > 0) {
-                    for (y <- x.productIterator.toList) {
-                        calculateBlockMapping(y, currentBlock, function)
-                    }
-                }
-            case x: Opt[_] =>
-                if (currentFunction != null || x.condition == FeatureExprFactory.True) {
-
-                    // There are no measurement functions for DeclarationStatements in general. We have to filter them
-                    // to look at only the important blocks
-                    x.entry match {
-                        case _: DeclarationStatement =>
-                            calculateBlockMapping(x.entry, currentBlock, currentFunction)
-                        case s: Statement =>
-                            var cond = currentBlock.&(x.condition)
-
-                            x.entry match {
-                                case i: IfStatement =>
-                                    i.condition match {
-                                        case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
-                                        case One(n: NAryExpr) =>
-                                            var optFound = false
-                                            for (i <- n.others
-                                                    if !optFound) {
-                                                if (i.condition != FeatureExprFactory.True) {
-                                                    cond = cond.&(i.condition)
-                                                    optFound = true
-                                                }
-                                            }
-                                        case _ =>
-                                    }
-                                case e: ElifStatement => // ElifStatement is no Statement (?!?)
-                                    e.condition match {
-                                        case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
-                                        case One(n: NAryExpr) =>
-                                            var optFound = false
-                                            for (i <- n.others
-                                                 if !optFound) {
-                                                if (i.condition != FeatureExprFactory.True) {
-                                                    cond = cond.&(i.condition)
-                                                    optFound = true
-                                                }
-                                            }
-                                        case _ =>
-                                    }
-                                case w: WhileStatement =>
-                                    w.s match {
-                                        case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
-                                        case One(n: NAryExpr) =>
-                                            var optFound = false
-                                            for (i <- n.others
-                                                 if !optFound) {
-                                                if (i.condition != FeatureExprFactory.True) {
-                                                    cond = cond.&(i.condition)
-                                                    optFound = true
-                                                }
-                                            }
-                                        case _ =>
-                                    }
-                                case d: DoStatement =>
-                                    d.s match {
-                                        case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
-                                        case One(n: NAryExpr) =>
-                                            var optFound = false
-                                            for (i <- n.others
-                                                 if !optFound) {
-                                                if (i.condition != FeatureExprFactory.True) {
-                                                    cond = cond.&(i.condition)
-                                                    optFound = true
-                                                }
-                                            }
-                                        case _ =>
-                                    }
-                                case _ =>
-
-                            }
-
-                            updateBlockMapping(cond, s)
-
-                            if (cond != FeatureExprFactory.True) {
-                                val block = currentBlockMapping(cond)
-
-                                if (blockToStatements.contains(block)) {
-                                    val map = blockToStatements(block)
-                                    map.put(s, s)
-
-                                    blockToStatements -= block
-                                    blockToStatements += (block -> map)
-                                } else {
-                                    val map = new IdentityHashMap[Statement, Statement]()
-                                    map.put(s, s)
-
-                                    blockToStatements += (block -> map)
-                                }
-
-                                if (functionBlocks.contains(currentFunction)) {
-                                    if (!functionBlocks(currentFunction).contains(block)) {
-                                        var funcBlocks = functionBlocks(currentFunction)
-                                        funcBlocks += block
-
-                                        functionBlocks -= currentFunction
-                                        functionBlocks += (currentFunction -> funcBlocks)
-                                    }
-                                } else {
-                                    var funcBlocks = Set.empty[String]
-                                    funcBlocks += block
-
-                                    functionBlocks += (currentFunction -> funcBlocks)
-                                }
-
-                                calculateBlockMapping(x.entry, cond, currentFunction)
-                            } else {
-                                calculateBlockMapping(x.entry, cond, currentFunction)
-                            }
-                        case e: ElifStatement =>
-                            var cond = currentBlock
-                            e.condition match {
-                                case c: Choice[_] =>
-                                    cond = cond.&(c.condition)
-                                case _ =>
-                            }
-                            calculateBlockMapping(x.entry, cond, currentFunction)
-                        case o =>
-                            calculateBlockMapping(x.entry, currentBlock, currentFunction)
-                    }
-                }
-            case One(x) =>
-                calculateBlockMapping(x, currentBlock, currentFunction)
-            case x: Choice[_] =>
-                calculateBlockMapping(x.thenBranch, currentBlock.&(x.condition), currentFunction)
-                calculateBlockMapping(x.elseBranch, currentBlock.&(x.condition.not()), currentFunction)
-            case x: List[_] =>
-                for (elem <- x) {
-                    calculateBlockMapping(elem, currentBlock, currentFunction)
-                }
-            case Some(x) =>
-                calculateBlockMapping(x, currentBlock, currentFunction)
-            case None =>
-            case o =>
-        }
-    }
-
-    private def createBlockName(expr: FeatureExpr): String = {
-        var id = 0
-        if(featureCounter.contains(expr)) {
-            id = featureCounter(expr)
-        }
-
-        contextToReadableString(expr) + "_" + id
-        //expr.toString() + "_" + java.util.UUID.randomUUID.toString
-    }
-
-    private def contextToReadableString(context: FeatureExpr): String = {
-        val regexPattern = "(defined|definedEx)\\(([a-zA-Z_0-9]+)\\)".r
-        return regexPattern replaceAllIn(context.toTextExpr, "$2")
-    }
-
-    private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
-        if (currentExpr == FeatureExprFactory.True) {
-            currentBlockMapping = Map.empty[FeatureExpr, String]
-        } else {
-            var keysToRemove = Set.empty[FeatureExpr]
-
-            for (key <- currentBlockMapping.keySet.filter(p => p != currentExpr)) {
-                // Check if currentExpr is new block in currentBlocks
-                if (!(key.collectDistinctFeatureObjects subsetOf currentExpr.collectDistinctFeatureObjects)
-                    || !currentExpr.and(key).implies(key).isTautology() || key.implies(currentExpr.and(key)).isTautology()) {
-                    keysToRemove += key
-                }
-            }
-
-            for (key <- keysToRemove) {
-                currentBlockMapping -= key
-            }
-
-            if (!currentBlockMapping.contains(currentExpr)) {
-                val newBlock = createBlockName(currentExpr)
-                currentBlockMapping += (currentExpr -> newBlock)
-                blockToExpr += (newBlock -> currentExpr)
-            }
-
-            val currBlock = currentBlockMapping(currentExpr)
-
-            //exprToBlock.put(currentExpr, currBlock)
-            statementToBlock.put(stmt, currBlock)
-
-            // Update statementMapping
-            val blockNameParts = currBlock.split("_")
-            statementMapping.put(stmt, blockNameParts(blockNameParts.size - 1))
-
-            // Update blockCapsuling
-            for(key <- currentBlockMapping.keySet.filter(p => p != currentExpr)) {
-                val block = currentBlockMapping(key)
-
-                if (blockCapsuling.contains(block)) {
-                    var set = blockCapsuling(block)
-
-                    if (!set.contains(currBlock)) {
-                        set += currBlock
-                        blockCapsuling -= block
-                        blockCapsuling += (block -> set)
-                    }
-                } else {
-                    var set = Set.empty[String]
-                    set += currBlock
-
-                    blockCapsuling += (block -> set)
-                }
-            }
-
-            // Update feature counter
-            if (keysToRemove.nonEmpty || !blockToStatements.contains(currBlock)) {
-                var ftCounter = 0
-
-                if (featureCounter.contains(currentExpr)) {
-                    ftCounter = featureCounter(currentExpr)
-
-                    featureCounter -= currentExpr
-                }
-
-                featureCounter += (currentExpr -> (ftCounter + 1))
-            }
-        }
-    }
-
     // Global for current status of loops for loop score calculation and granularity
     private var loopExited: Map[Int, Boolean] = Map.empty[Int, Boolean]
 
@@ -642,170 +782,140 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    private def granularity(obj: Any, currentBlocks: Set[String] = Set.empty[String], currentFunction: String = null,
+    private def granularity(obj: Any, currentBlock: String = null, currentFunction: String = null,
                             weight: Double = 1.0, causes: Set[String] = Set.empty[String]): Unit = {
         var newCauses = causes
 
         obj match {
             case x: ForStatement =>
                 val currentLoop: Int = loopCounter
-                var blocks: Set[String] = currentBlocks
+                var block: String = currentBlock
 
                 newCauses += "For-Loop"
 
                 if (statementToBlock.containsKey(x)) {
-                    blocks = blocks + statementToBlock.get(x)
+                    block = statementToBlock.get(x)
 
-                    for (block <- blocks) {
-                        if (!blockScores.contains(block)) {
-                            blockScores += (block -> 0)
-                        }
+                    if (!blockScores.contains(block)) {
+                        blockScores += (block -> 0)
                     }
                 }
 
                 for (c <- newCauses) {
-                    for (b <- blocks) {
-                        addScoreCause(b, c)
-                    }
+                    addScoreCause(block, c)
                 }
 
-                increaseScore(blocks, currentFunction, weight * loopScores(currentLoop))
+                increaseScore(block, currentFunction, weight * loopScores(currentLoop))
 
                 loopCounter += 1
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop), newCauses)
+                        granularity(y, block, currentFunction, weight * loopScores(currentLoop), newCauses)
                     }
                 }
             case x: WhileStatement =>
                 val currentLoop: Int = loopCounter
-                var blocks: Set[String] = currentBlocks
+                var block: String = currentBlock
 
                 newCauses += "While-Loop"
 
                 if (statementToBlock.containsKey(x)) {
-                    blocks = blocks + statementToBlock.get(x)
+                    block = statementToBlock.get(x)
 
-                    for (block <- blocks) {
-                        if (!blockScores.contains(block)) {
-                            blockScores += (block -> 0)
-                        }
+                    if (!blockScores.contains(block)) {
+                        blockScores += (block -> 0)
                     }
                 }
 
                 for (c <- newCauses) {
-                    for (b <- blocks) {
-                        addScoreCause(b, c)
-                    }
+                    addScoreCause(block, c)
                 }
 
-                increaseScore(blocks, currentFunction, weight * loopScores(currentLoop))
+                increaseScore(block, currentFunction, weight * loopScores(currentLoop))
 
                 loopCounter += 1
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop), newCauses)
+                        granularity(y, block, currentFunction, weight * loopScores(currentLoop), newCauses)
                     }
                 }
             case x: DoStatement =>
                 val currentLoop: Int = loopCounter
-                var blocks: Set[String] = currentBlocks
+                var block: String = currentBlock
 
                 newCauses += "Do-Loop"
 
                 if (statementToBlock.containsKey(x)) {
-                    blocks = blocks + statementToBlock.get(x)
+                    block = statementToBlock.get(x)
 
-                    for (block <- blocks) {
-                        if (!blockScores.contains(block)) {
-                            blockScores += (block -> 0)
-                        }
+                    if (!blockScores.contains(block)) {
+                        blockScores += (block -> 0)
                     }
                 }
 
                 for (c <- newCauses) {
-                    for (b <- blocks) {
-                        addScoreCause(b, c)
-                    }
+                    addScoreCause(block, c)
                 }
 
-                increaseScore(blocks, currentFunction, weight * loopScores(currentLoop))
+                increaseScore(block, currentFunction, weight * loopScores(currentLoop))
 
                 loopCounter += 1
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, currentFunction, weight * loopScores(currentLoop), newCauses)
+                        granularity(y, block, currentFunction, weight * loopScores(currentLoop), newCauses)
                     }
                 }
 
             case x: AST =>
 
-                var functionDef = currentFunction
-                var blocks = currentBlocks
-                var adjustedWeight = weight
+                var functionDef: String = currentFunction
+                var block: String = currentBlock
+                var adjustedWeight: Double = weight
 
                 obj match {
                     case funcDef: FunctionDef =>
                         functionDef = funcDef.getName
                         functionDefs = functionDefs + functionDef
-                    case funcCall: PostfixExpr =>
-                        var funcName: String = null
+                    case PostfixExpr(p: Id, s: FunctionCall) =>
+                        val funcName: String = p.name
 
-                        funcCall.p match {
-                            case i: Id =>
-                                funcName = i.name
-                            case _ =>
-                        }
+                        if (currentBlock != null) {
+                            val tuple = new FuncCall(funcName, block, blockToExpr(block), weight)
+                            if (globalFunctionCalls.contains(currentFunction)) {
+                                val list = globalFunctionCalls(currentFunction)
 
-                        if (funcName != null) {
-                            funcCall.s match {
-                                case t: FunctionCall =>
-                                    for (block <- currentBlocks) {
-                                        val tuple = new FuncCall(funcName, block, blockToExpr(block), weight)
-                                        if (globalFunctionCalls.contains(currentFunction)) {
-                                            val list = globalFunctionCalls(currentFunction)
+                                globalFunctionCalls -= currentFunction
+                                globalFunctionCalls += (currentFunction -> (list ::: List(tuple)))
+                            } else {
+                                globalFunctionCalls += (currentFunction -> List(tuple))
+                            }
+                        } else {
+                            val tuple = new FuncCall(funcName, "True", FeatureExprFactory.True, weight)
+                            if (globalFunctionCalls.contains(currentFunction)) {
+                                val list = globalFunctionCalls(currentFunction)
 
-                                            globalFunctionCalls -= currentFunction
-                                            globalFunctionCalls += (currentFunction -> (list ::: List(tuple)))
-                                        } else {
-                                            globalFunctionCalls += (currentFunction -> List(tuple))
-                                        }
-                                    }
-
-                                    if (currentBlocks.isEmpty) {
-                                        val tuple = new FuncCall(funcName, "True", FeatureExprFactory.True, weight)
-                                        if (globalFunctionCalls.contains(currentFunction)) {
-                                            val list = globalFunctionCalls(currentFunction)
-
-                                            globalFunctionCalls -= currentFunction
-                                            globalFunctionCalls += (currentFunction -> (list ::: List(tuple)))
-                                        } else {
-                                            globalFunctionCalls += (currentFunction -> List(tuple))
-                                        }
-                                    }
-                                case _ =>
+                                globalFunctionCalls -= currentFunction
+                                globalFunctionCalls += (currentFunction -> (list ::: List(tuple)))
+                            } else {
+                                globalFunctionCalls += (currentFunction -> List(tuple))
                             }
                         }
                     case s: Statement =>
                         if (statementToBlock.containsKey(s)) {
-                            blocks = blocks + statementToBlock.get(s)
+                            block = statementToBlock.get(s)
 
-                            for (block <- blocks) {
-                                if (!blockScores.contains(block)) {
-                                    blockScores += (block -> 0)
-                                }
+                            if (!blockScores.contains(block)) {
+                                blockScores += (block -> 0)
                             }
                         }
                         obj match {
                             case _: EmptyStatement | _: BreakStatement | _: ContinueStatement | _: GotoStatement => // Filtering statements that should not be counted
                             case _ =>
                                 for (c <- newCauses) {
-                                    for (b <- blocks) {
-                                        addScoreCause(b, c)
-                                    }
+                                    addScoreCause(block, c)
                                 }
 
-                                increaseScore(blocks, currentFunction, weight)
+                                increaseScore(block, currentFunction, weight)
                         }
                         obj match {
                             case i: IfStatement =>
@@ -832,32 +942,32 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, blocks, functionDef, adjustedWeight, newCauses)
+                        granularity(y, block, functionDef, adjustedWeight, newCauses)
                     }
                 }
             case x: Opt[_] =>
-                granularity(x.entry, currentBlocks, currentFunction, weight, newCauses)
+                granularity(x.entry, currentBlock, currentFunction, weight, newCauses)
             case x: List[_] =>
                 for (elem <- x) {
-                    granularity(elem, currentBlocks, currentFunction, weight, newCauses)
+                    granularity(elem, currentBlock, currentFunction, weight, newCauses)
                 }
             case Some(x) =>
-                granularity(x, currentBlocks, currentFunction, weight, newCauses)
+                granularity(x, currentBlock, currentFunction, weight, newCauses)
             case x: One[_] =>
-                granularity(x.value, currentBlocks, currentFunction, weight, newCauses)
+                granularity(x.value, currentBlock, currentFunction, weight, newCauses)
             case x: Choice[_] =>
-                granularity(x.thenBranch, currentBlocks, currentFunction, weight, newCauses)
-                granularity(x.elseBranch, currentBlocks, currentFunction, weight, newCauses)
+                granularity(x.thenBranch, currentBlock, currentFunction, weight, newCauses)
+                granularity(x.elseBranch, currentBlock, currentFunction, weight, newCauses)
             case None =>
             case o =>
         }
     }
 
-    private def increaseScore(currentBlocks: Set[String], currentFunction: String, weight: Double): Unit = {
+    private def increaseScore(block: String, currentFunction: String, weight: Double): Unit = {
         if (currentFunction != null) {
 
-            // Update loc of blocks
-            for (block <- currentBlocks) {
+            if (block != null) {
+                // Update score of block
                 if (blockScores.contains(block)) {
                     val w = blockScores(block)
 
@@ -866,10 +976,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 } else {
                     blockScores += (block -> weight)
                 }
-            }
-
-            // Update score of functions (True only)
-            if (currentBlocks.isEmpty) {
+            } else {
+                // Update score of functions (True only)
                 if (functionScores.contains(currentFunction)) {
                     val score = functionScores(currentFunction)
 
@@ -936,164 +1044,15 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    private def getRecSet(call: FuncCall): Option[Set[String]] = {
-        var visitedFunctions: Map[String, Boolean] = Map.empty[String, Boolean]
-        var nextFunctionCalls: Set[FuncCall] = Set.empty[FuncCall]
-
-        nextFunctionCalls += call
-
-        while (nextFunctionCalls.nonEmpty) {
-            var functionCalls: Set[FuncCall] = Set.empty[FuncCall]
-
-            for (func <- nextFunctionCalls) {
-                if (!predefinedFunctionScores.contains(func.functionName)) {
-                    if (globalFunctionCalls.contains(func.functionName)
-                        && (!visitedFunctions.contains(func.functionName) || !visitedFunctions(func.functionName))) {
-                        for (call <- globalFunctionCalls(func.functionName)) {
-                            functionCalls += call
-                        }
-                    }
-
-                    if (!visitedFunctions.contains(func.functionName)) {
-                        visitedFunctions += (func.functionName -> false)
-                    } else if (!visitedFunctions(func.functionName)) {
-                        visitedFunctions -= func.functionName
-                        visitedFunctions += (func.functionName -> true)
-                    }
-                }
-            }
-
-            nextFunctionCalls = functionCalls
-        }
-
-        var recSet = visitedFunctions.filter(p => p._2).keySet
-
-        // Removing all function calls that are no part of any recursion, Result: Set of (possibly multiple) recursions
-        for ((startFunc, calls) <- functionCalledBy) {
-            var functionSet: Set[String] = Set.empty[String]
-            var nextFunctions: Set[String] = calls
-
-            while(nextFunctions.nonEmpty) {
-                var set: Set[String] = Set.empty[String]
-
-                for (f <- nextFunctions) {
-                    if (!functionSet.contains(f) && functionCalledBy.contains(f)) {
-                        functionSet += f
-                        set = set.union(functionCalledBy(f))
-                    }
-                }
-
-                nextFunctions = set
-            }
-
-            if (!functionSet.contains(startFunc)) {
-                recSet -= startFunc
-            }
-        }
-
-        if (recSet.contains(call.functionName)) {
-            // Get the one recursion that contains the call parameter
-
-            var functionSet: Set[String] = Set.empty[String]
-            var nextFunctions: Set[String] = Set(call.functionName)
-
-            while(nextFunctions.nonEmpty) {
-                var set: Set[String] = Set.empty[String]
-
-                for (f <- nextFunctions) {
-                    if (!functionSet.contains(f) && functionCalledBy.contains(f)) {
-                        functionSet += f
-                        set = set.union(functionCalledBy(f))
-                    }
-                }
-
-                nextFunctions = set
-            }
-
-            Some(recSet.intersect(functionSet))
-
-        } else {
-            None
-        }
-
-    }
-
-    var functionCalledBy: Map[String, Set[String]] = Map.empty[String, Set[String]]
-
-    private def calculateFunctionsCalledBy(): Unit = {
-        for ((func, calls) <- globalFunctionCalls) {
-            for (call <- calls) {
-                if (functionCalledBy.contains(call.functionName)) {
-                    var set = functionCalledBy(call.functionName)
-                    set += func
-                    functionCalledBy -= call.functionName
-                    functionCalledBy += (call.functionName -> set)
-                } else {
-                    functionCalledBy += (call.functionName -> Set(func))
-                }
-            }
-        }
-    }
-
     var visitedCalledFunctions: Set[String] = Set.empty[String]
     var callCauses: Set[String] = Set.empty[String]
 
     private def careFunctionCalls(): Unit = {
-        var functionRecSets: Set[Set[String]] = Set.empty[Set[String]]
         var functionRecSetMapping: Map[String, Set[String]] = Map.empty[String, Set[String]]
         var recSetValue: Map[String, Double] = Map.empty[String, Double]
 
         if (!FUNCTION_ACCUMULATION) {
-            calculateFunctionsCalledBy()
-
-            println("     -- Calculating recursions")
-            var i = 1
-            var visitedFunctions: Set[String] = Set.empty[String]
-
-            for ((funcLocation, funcCalls) <- globalFunctionCalls) {
-                println("         --- Attempting to calculate recursion: Evaluating calls of function  " + i.toString + " of " +  globalFunctionCalls.size)
-                for (call <- funcCalls) {
-                    if (!visitedFunctions.contains(call.functionName) && functionRecSets.forall(set => !set.contains(call.functionName))) {
-                        visitedFunctions += call.functionName
-
-                        getRecSet(call) match {
-                            case Some(x) =>
-                                functionRecSets += x
-                            case None =>
-                        }
-                    }
-                }
-                i += 1
-            }
-
-            // If there are still intersections take the most general one
-            while (functionRecSets.exists(set1 => functionRecSets.exists(set2 => set1 != set2 && set1.intersect(set2).nonEmpty))) {
-                var recSets: Set[Set[String]] = functionRecSets
-
-                for (set1 <- functionRecSets) {
-                    for (set2 <- functionRecSets) {
-                        val intersection = set1.intersect(set2)
-
-                        if (set1 != set2 && intersection.nonEmpty) {
-                            recSets -= set1
-                            recSets -= set2
-                            recSets += intersection
-                        }
-                    }
-                }
-
-                functionRecSets = recSets
-            }
-
-            val pw = new PrintWriter(new File(dir + "recursions.txt"))
-            var string = ""
-
-            for (rec <- functionRecSets) {
-                string = string + rec.toString + "\n"
-            }
-
-            pw.write(string)
-            pw.close()
+            val functionRecSets = calculateRecursiveSets()
 
             println("     -- Calculating recursion values")
             // Calculate the score of each recursion set
@@ -1293,6 +1252,178 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
+}
+
+trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IOUtilities {
+
+    var functionDefs: Set[String] = Set.empty[String]
+    var recSets: Set[Set[String]] = Set.empty[Set[String]]
+
+    var ifStatementsBlocks: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
+    var switchStatementsBlocks: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
+    var funcCallsBlocks: Map[String, Set[FuncCall]] = Map.empty[String, Set[FuncCall]]
+    var flowIrregulationsBlock: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
+
+    var ifStatementsFunctions: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
+    var switchStatementsFunctions: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
+    var funcCallsFunctions: Map[String, Set[FuncCall]] = Map.empty[String, Set[FuncCall]]
+    var flowIrregulationsFunctions: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
+
+    var ifBinBlocks: Map[String, Int] = Map.empty[String, Int]
+    var switchBinBlocks: Map[String, Int] = Map.empty[String, Int]
+    var callBinBlocks: Map[String, Int] = Map.empty[String, Int]
+    var flowBinBlocks: Map[String, Int] = Map.empty[String, Int]
+    var recBinBlocks: Map[String, Int] = Map.empty[String, Int]
+
+    var ifBinFunctions: Map[String, Int] = Map.empty[String, Int]
+    var switchBinFunctions: Map[String, Int] = Map.empty[String, Int]
+    var callBinFunctions: Map[String, Int] = Map.empty[String, Int]
+    var flowBinFunctions: Map[String, Int] = Map.empty[String, Int]
+    var recBinFunctions: Map[String, Int] = Map.empty[String, Int]
+
+    var binScoreFunctions: Map[String, Int] = Map.empty[String, Int]
+    var binScoreBlocks: Map[String, Int] = Map.empty[String, Int]
+
+    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int): IdentityHashMap[Any, Boolean] = {
+        val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
+
+        println(" - Calculating block mapping")
+        calculateBlockMapping(ast)
+        println(" - Analyzing the code")
+        granularity(ast)
+
+        println(" - Calculating the bin score of each category for each function")
+        calculateEachFunctionBin()
+        println(" - Calculating the bin score of each category for each block")
+        calculateEachBlockBin()
+
+        ignoredStatements
+    }
+
+    private def granularity(obj: Any, currentBlocks: Set[String] = Set.empty[String], currentFunction: String = null): Unit = {
+        obj match {
+            case x: IfStatement =>
+            case SwitchStatement(expr: Expr, One(CompoundStatement(list))) =>
+                var amountCases = 0
+
+                // Count amount of case statements and default statement
+                for (elem <- list) {
+                    elem.entry match {
+                        case _: CaseStatement | _: DefaultStatement =>
+                            amountCases += 1
+                        case _ =>
+                    }
+                }
+
+                granularity(expr, currentBlocks, currentFunction)
+                granularity(list, currentBlocks, currentFunction)
+
+            case x: ForStatement =>
+                var blocks: Set[String] = currentBlocks
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        granularity(y, blocks, currentFunction)
+                    }
+                }
+
+            case x: WhileStatement =>
+                var blocks: Set[String] = currentBlocks
+
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        granularity(y, blocks, currentFunction)
+                    }
+                }
+
+            case x: DoStatement =>
+                var blocks: Set[String] = currentBlocks
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        granularity(y, blocks, currentFunction)
+                    }
+                }
+
+            case x: BreakStatement =>
+            case x: ContinueStatement =>
+            case x: GotoStatement =>
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        granularity(y, currentBlocks, currentFunction)
+                    }
+                }
+
+            case x: AST =>
+
+                var functionDef = currentFunction
+
+                obj match {
+                    case funcDef: FunctionDef => // Function definition
+                        functionDef = funcDef.getName
+                        functionDefs = functionDefs + functionDef
+                    case PostfixExpr(p: Id, s: FunctionCall) => // Function call
+                        val funcName: String = p.name
+
+                        for (block <- currentBlocks) {
+                            val tuple = new FuncCall(funcName, block, blockToExpr(block), 1.0)
+                            if (globalFunctionCalls.contains(currentFunction)) {
+                                val list = globalFunctionCalls(currentFunction)
+
+                                globalFunctionCalls -= currentFunction
+                                globalFunctionCalls += (currentFunction -> (list ::: List(tuple)))
+                            } else {
+                                globalFunctionCalls += (currentFunction -> List(tuple))
+                            }
+                        }
+
+                        if (currentBlocks.isEmpty) {
+                            val tuple = new FuncCall(funcName, "True", FeatureExprFactory.True, 1.0)
+                            if (globalFunctionCalls.contains(currentFunction)) {
+                                val list = globalFunctionCalls(currentFunction)
+
+                                globalFunctionCalls -= currentFunction
+                                globalFunctionCalls += (currentFunction -> (list ::: List(tuple)))
+                            } else {
+                                globalFunctionCalls += (currentFunction -> List(tuple))
+                            }
+                        }
+
+                    case _ =>
+                }
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        granularity(y, currentBlocks, functionDef)
+                    }
+                }
+            case x: Opt[_] =>
+                granularity(x.entry, currentBlocks, currentFunction)
+            case x: List[_] =>
+                for (elem <- x) {
+                    granularity(elem, currentBlocks, currentFunction)
+                }
+            case Some(x) =>
+                granularity(x, currentBlocks, currentFunction)
+            case x: One[_] =>
+                granularity(x.value, currentBlocks, currentFunction)
+            case x: Choice[_] =>
+                granularity(x.thenBranch, currentBlocks, currentFunction)
+                granularity(x.elseBranch, currentBlocks, currentFunction)
+            case None =>
+            case o =>
+        }
+    }
+
+    private def calculateEachFunctionBin(): Unit = {
+
+    }
+
+    private def calculateEachBlockBin(): Unit = {
+
+    }
 }
 
 class IfdefToIfGranularity extends IfdefToIfGranularityInterface with IfdefToIfGranularityExecCode {
