@@ -1135,11 +1135,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                     callCauses += "Recursion"
 
-                    for (func <- recSet) {
-                        if (functionBlocks.contains(func)) {
-                            for (block <- functionBlocks(func).filter(b => scoreCauses.contains(b))) {
-                                callCauses = callCauses.union(scoreCauses(block))
-                            }
+                    for (func <- recSet.filter(f => functionBlocks.contains(f))) {
+                        for (block <- functionBlocks(func).filter(b => scoreCauses.contains(b))) {
+                            callCauses = callCauses.union(scoreCauses(block))
                         }
                     }
 
