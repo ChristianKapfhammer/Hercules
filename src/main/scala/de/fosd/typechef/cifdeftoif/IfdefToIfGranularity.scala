@@ -472,8 +472,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             id = featureCounter(expr)
         }
 
-        //expr.toString() + "_" + id
-        expr.toString() + "_" + java.util.UUID.randomUUID.toString
+        contextToReadableString(expr) + "_" + id
+        //expr.toString() + "_" + java.util.UUID.randomUUID.toString
+    }
+
+    private def contextToReadableString(context: FeatureExpr): String = {
+        val regexPattern = "(defined|definedEx)\\(([a-zA-Z_0-9]+)\\)".r
+        return regexPattern replaceAllIn(context.toTextExpr, "$2")
     }
 
     private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
