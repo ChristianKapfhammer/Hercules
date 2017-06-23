@@ -1136,8 +1136,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     callCauses += "Recursion"
 
                     for (func <- recSet) {
-                        for (block <- functionBlocks(func)) {
-                            callCauses = callCauses.union(scoreCauses(block))
+                        if (functionBlocks.contains(func)) {
+                            for (block <- functionBlocks(func)) {
+                                callCauses = callCauses.union(scoreCauses(block))
+                            }
                         }
                     }
 
@@ -1159,8 +1161,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                         callCauses += "Function"
 
-                        for (block <- functionBlocks(call.functionName)) {
-                            callCauses = callCauses.union(scoreCauses(block))
+                        if (functionBlocks.contains(call.functionName)) {
+                            for (block <- functionBlocks(call.functionName)) {
+                                callCauses = callCauses.union(scoreCauses(block))
+                            }
                         }
 
                         if (functionCallOffsets.contains(call.functionName)) {
@@ -1184,8 +1188,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                     callCauses += "Function"
 
-                    for (block <- functionBlocks(call.functionName)) {
-                        callCauses = callCauses.union(scoreCauses(block))
+                    if (functionBlocks.contains(call.functionName)) {
+                        for (block <- functionBlocks(call.functionName)) {
+                            callCauses = callCauses.union(scoreCauses(block))
+                        }
                     }
 
 
