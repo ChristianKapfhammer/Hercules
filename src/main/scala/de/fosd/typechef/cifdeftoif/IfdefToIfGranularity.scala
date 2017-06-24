@@ -420,12 +420,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var predefinedFunctionScores: Map[String, Double] = Map.empty[String, Double]
     private var functionCallOffsets: Map[String, Double] = Map.empty[String, Double]
 
+    private var loopCounter: Int = 0
     private var loopScores: Map[Int, Double] = Map.empty[Int, Double]
     private var functionDefs: Set[String] = Set.empty[String]
     private var functionScores: Map[String, Double] = Map.empty[String, Double]
-    private var blockScores: Map[String, Double] = Map.empty[String, Double]
     private var singleBlockScores: Map[String, Double] = Map.empty[String, Double]
-    private var loopCounter: Int = 0
+    private var blockScores: Map[String, Double] = Map.empty[String, Double]
+    private var scoreCauses: Map[String, Set[String]] = Map.empty[String, Set[String]]
 
     private var additionGeneralCounter: Int = 0
     private var subtractionGeneralCounter: Int = 0
@@ -435,8 +436,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var subtractionBlockCounter: Int = 0
     private var multiplicationBlockCounter: Int = 0
     private var divisionBlockCounter: Int = 0
-
-    private var scoreCauses: Map[String, Set[String]] = Map.empty[String, Set[String]]
 
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int = 2): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
@@ -1229,18 +1228,20 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
 }
 
-/*trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IOUtilities {
+trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IOUtilities {
 
     var functionDefs: Set[String] = Set.empty[String]
     var recSets: Set[Set[String]] = Set.empty[Set[String]]
 
     var ifStatementsBlocks: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
     var switchStatementsBlocks: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
+    var loopsBlocks: Map[String, Int] = Map.empty[String, Int]
     var funcCallsBlocks: Map[String, Set[FuncCall]] = Map.empty[String, Set[FuncCall]]
     var flowIrregulationsBlocks: Map[String, Int] = Map.empty[String, Int]
 
     var ifStatementsFunctions: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
     var switchStatementsFunctions: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
+    var loopsFunctions: Map[String, Int] = Map.empty[String, Int]
     var funcCallsFunctions: Map[String, Set[FuncCall]] = Map.empty[String, Set[FuncCall]]
     var flowIrregulationsFunctions: Map[String, Int] = Map.empty[String, Int]
 
@@ -1248,15 +1249,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     var switchBinBlocks: Map[String, Int] = Map.empty[String, Int]
     var callBinBlocks: Map[String, Int] = Map.empty[String, Int]
     var flowBinBlocks: Map[String, Int] = Map.empty[String, Int]
-    var recBinBlocks: Map[String, Int] = Map.empty[String, Int]
 
     var ifBinFunctions: Map[String, Int] = Map.empty[String, Int]
     var switchBinFunctions: Map[String, Int] = Map.empty[String, Int]
     var callBinFunctions: Map[String, Int] = Map.empty[String, Int]
     var flowBinFunctions: Map[String, Int] = Map.empty[String, Int]
-    var recBinFunctions: Map[String, Int] = Map.empty[String, Int]
 
-    var binScoreFunctions: Map[String, Int] = Map.empty[String, Int]
     var binScoreBlocks: Map[String, Int] = Map.empty[String, Int]
 
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int): IdentityHashMap[Any, Boolean] = {
@@ -1266,9 +1264,35 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         calculateBlockMapping(ast)
         println(" - Analyzing the code")
         granularity(ast)
+        println(" - Calculating recusrions")
+        recSets = calculateRecursiveSets()
+        println(" - Analyzing if statements")
 
-        println(" - Calculating the bin score of each category for each block")
+        println(" - Analyzing switch statements")
+
+        println(" - Analyzing control flow irregulations")
+
+        println(" - Analyzing function calls")
+
+        println(" - Calculating the bin score for each block")
         calculateEachBlockBin()
+
+        binScoreBlocks.foreach(block => {
+            if (block._1 != null && blockToStatements.contains(block._1) && block._2 < threshold) {
+                val statements = blockToStatements(block._1)
+
+                statements.keySet().toArray.foreach({
+                    case i@IfStatement(_, One(CompoundStatement(list)), _, _) =>
+                        ignoredStatements.put(i, block._2 < threshold)
+
+                        if (list.size == 1) {
+                            ignoredStatements.put(list.head.entry, block._2 < threshold)
+                        }
+                    case s: Statement =>
+                        ignoredStatements.put(s, block._2 < threshold)
+                })
+            }
+        })
 
         ignoredStatements
     }
@@ -1277,8 +1301,35 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         obj match {
             case x: IfStatement =>
                 var block = currentBlock
+                val ifBranches = x.elifs.size + 2
 
-                // TODO
+                if (statementToBlock.containsKey(x)) {
+                    block = statementToBlock.get(x)
+
+                    if (!binScoreBlocks.contains(block)) {
+                        binScoreBlocks += (block -> 0)
+                    }
+
+                    if (ifStatementsBlocks.contains(block)) {
+                        var set = ifStatementsBlocks(block)
+                        set += ifBranches
+
+                        ifStatementsBlocks -= block
+                        ifStatementsBlocks += (block -> set)
+                    } else {
+                        ifStatementsBlocks += (block -> Set(ifBranches))
+                    }
+                } else {
+                    if (ifStatementsFunctions.contains(block)) {
+                        var set = ifStatementsFunctions(block)
+                        set += ifBranches
+
+                        ifStatementsFunctions -= block
+                        ifStatementsFunctions += (block -> set)
+                    } else {
+                        ifStatementsFunctions += (block -> Set(ifBranches))
+                    }
+                }
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
@@ -1286,9 +1337,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
             case SwitchStatement(expr: Expr, One(CompoundStatement(list))) =>
+                var block = currentBlock
                 var amountCases = 0
-
-                // TODO
 
                 for (elem <- list) {
                     elem.entry match {
@@ -1298,13 +1348,65 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
-                granularity(expr, currentBlock, currentFunction)
-                granularity(list, currentBlock, currentFunction)
+                if (statementToBlock.containsKey(obj)) {
+                    block = statementToBlock.get(obj)
+
+                    if (!binScoreBlocks.contains(block)) {
+                        binScoreBlocks += (block -> 0)
+                    }
+
+                    if (switchStatementsBlocks.contains(block)) {
+                        var set = switchStatementsBlocks(block)
+                        set += amountCases
+
+                        switchStatementsBlocks -= block
+                        switchStatementsBlocks += (block -> set)
+                    } else {
+                        switchStatementsBlocks += (block -> Set(amountCases))
+                    }
+                } else {
+                    if (switchStatementsFunctions.contains(block)) {
+                        var set = switchStatementsFunctions(block)
+                        set += amountCases
+
+                        switchStatementsFunctions -= block
+                        switchStatementsFunctions += (block -> set)
+                    } else {
+                        switchStatementsFunctions += (block -> Set(amountCases))
+                    }
+                }
+
+                granularity(expr, block, currentFunction)
+                granularity(list, block, currentFunction)
 
             case x: ForStatement =>
                 var block: String = currentBlock
 
-                // TODO
+                if (statementToBlock.containsKey(x)) {
+                    block = statementToBlock.get(x)
+
+                    if (!binScoreBlocks.contains(block)) {
+                        binScoreBlocks += (block -> 0)
+                    }
+
+                    if (loopsBlocks.contains(block)) {
+                        val count = loopsBlocks(block)
+
+                        loopsBlocks -= block
+                        loopsBlocks += (block -> (count+1))
+                    } else {
+                        loopsBlocks += (block -> 1)
+                    }
+                } else {
+                    if (loopsFunctions.contains(currentFunction)) {
+                        val count = loopsFunctions(currentFunction)
+
+                        loopsFunctions -= currentFunction
+                        loopsFunctions += (currentFunction -> (count+1))
+                    } else {
+                        loopsFunctions += (currentFunction -> 1)
+                    }
+                }
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
@@ -1315,7 +1417,31 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             case x: WhileStatement =>
                 var block: String = currentBlock
 
-                // TODO
+                if (statementToBlock.containsKey(x)) {
+                    block = statementToBlock.get(x)
+
+                    if (!binScoreBlocks.contains(block)) {
+                        binScoreBlocks += (block -> 0)
+                    }
+
+                    if (loopsBlocks.contains(block)) {
+                        val count = loopsBlocks(block)
+
+                        loopsBlocks -= block
+                        loopsBlocks += (block -> (count+1))
+                    } else {
+                        loopsBlocks += (block -> 1)
+                    }
+                } else {
+                    if (loopsFunctions.contains(currentFunction)) {
+                        val count = loopsFunctions(currentFunction)
+
+                        loopsFunctions -= currentFunction
+                        loopsFunctions += (currentFunction -> (count+1))
+                    } else {
+                        loopsFunctions += (currentFunction -> 1)
+                    }
+                }
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
@@ -1326,7 +1452,31 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             case x: DoStatement =>
                 var block: String = currentBlock
 
-                // TODO
+                if (statementToBlock.containsKey(x)) {
+                    block = statementToBlock.get(x)
+
+                    if (!binScoreBlocks.contains(block)) {
+                        binScoreBlocks += (block -> 0)
+                    }
+
+                    if (loopsBlocks.contains(block)) {
+                        val count = loopsBlocks(block)
+
+                        loopsBlocks -= block
+                        loopsBlocks += (block -> (count+1))
+                    } else {
+                        loopsBlocks += (block -> 1)
+                    }
+                } else {
+                    if (loopsFunctions.contains(currentFunction)) {
+                        val count = loopsFunctions(currentFunction)
+
+                        loopsFunctions -= currentFunction
+                        loopsFunctions += (currentFunction -> (count+1))
+                    } else {
+                        loopsFunctions += (currentFunction -> 1)
+                    }
+                }
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
@@ -1338,13 +1488,17 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 if (statementToBlock.containsKey(obj)) {
                     val block = statementToBlock.get(obj)
 
+                    if (!binScoreBlocks.contains(block)) {
+                        binScoreBlocks += (block -> 0)
+                    }
+
                     if (flowIrregulationsBlocks.contains(block)) {
                         val count = flowIrregulationsBlocks(block)
 
                         flowIrregulationsBlocks -= block
                         flowIrregulationsBlocks += (block -> (count+1))
                     } else {
-                        flowIrregulationsBlocks += (block -> Set(1))
+                        flowIrregulationsBlocks += (block -> 1)
                     }
                 } else {
                     if (flowIrregulationsFunctions.contains(currentFunction)) {
@@ -1361,6 +1515,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 if (statementToBlock.containsKey(x)) {
                     block = statementToBlock.get(x)
+
+                    if (!binScoreBlocks.contains(block)) {
+                        binScoreBlocks += (block -> 0)
+                    }
 
                     if (flowIrregulationsBlocks.contains(block)) {
                         val count = flowIrregulationsBlocks(block)
@@ -1387,6 +1545,23 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
+            case x: Statement =>
+                var block = currentBlock
+
+                if (statementToBlock.containsKey(x)) {
+                    block = statementToBlock.get(x)
+
+                    if (!binScoreBlocks.contains(block)) {
+                        binScoreBlocks += (block -> 0)
+                    }
+                }
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        granularity(y, block, currentFunction)
+                    }
+                }
+
             case x: AST =>
                 var functionDef = currentFunction
 
@@ -1398,6 +1573,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         val funcName: String = p.name
 
                         if (currentBlock != null) {
+                            // Add function call to general map
                             val tuple = new FuncCall(funcName, currentBlock, blockToExpr(currentBlock), 1.0)
                             if (globalFunctionCalls.contains(currentFunction)) {
                                 val list = globalFunctionCalls(currentFunction)
@@ -1407,7 +1583,19 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                             } else {
                                 globalFunctionCalls += (currentFunction -> List(tuple))
                             }
+
+                            // Update function calls in blocks
+                            if (funcCallsBlocks.contains(currentFunction)) {
+                                var set = funcCallsBlocks(currentFunction)
+                                set += tuple
+
+                                funcCallsBlocks -= currentFunction
+                                funcCallsBlocks += (currentFunction -> set)
+                            } else {
+                                funcCallsBlocks += (currentFunction -> Set(tuple))
+                            }
                         } else {
+                            // Add function call to general map
                             val tuple = new FuncCall(funcName, "True", FeatureExprFactory.True, 1.0)
                             if (globalFunctionCalls.contains(currentFunction)) {
                                 val list = globalFunctionCalls(currentFunction)
@@ -1416,6 +1604,17 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                 globalFunctionCalls += (currentFunction -> (list ::: List(tuple)))
                             } else {
                                 globalFunctionCalls += (currentFunction -> List(tuple))
+                            }
+
+                            // Update function calls in functions
+                            if (funcCallsFunctions.contains(currentFunction)) {
+                                var set = funcCallsFunctions(currentFunction)
+                                set += tuple
+
+                                funcCallsFunctions -= currentFunction
+                                funcCallsFunctions += (currentFunction -> set)
+                            } else {
+                                funcCallsFunctions += (currentFunction -> Set(tuple))
                             }
                         }
 
@@ -1468,7 +1667,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private def calculateEachBlockBin(): Unit = {
 
     }
-}*/
+}
 
 class IfdefToIfGranularity extends IfdefToIfGranularityInterface with IfdefToIfGranularityExecCode {
 
