@@ -1247,11 +1247,13 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
     var ifBinBlocks: Map[String, Int] = Map.empty[String, Int]
     var switchBinBlocks: Map[String, Int] = Map.empty[String, Int]
+    var loopsBinBlocks: Map[String, Int] = Map.empty[String, Int]
     var callBinBlocks: Map[String, Int] = Map.empty[String, Int]
     var flowBinBlocks: Map[String, Int] = Map.empty[String, Int]
 
     var ifBinFunctions: Map[String, Int] = Map.empty[String, Int]
     var switchBinFunctions: Map[String, Int] = Map.empty[String, Int]
+    var loopsBinFunctions: Map[String, Int] = Map.empty[String, Int]
     var callBinFunctions: Map[String, Int] = Map.empty[String, Int]
     var flowBinFunctions: Map[String, Int] = Map.empty[String, Int]
 
@@ -1264,16 +1266,18 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         calculateBlockMapping(ast)
         println(" - Analyzing the code")
         granularity(ast)
-        println(" - Calculating recusrions")
+        println(" - Calculating recursions")
         recSets = calculateRecursiveSets()
         println(" - Analyzing if statements")
-
+        analyzeIfStatements()
         println(" - Analyzing switch statements")
-
+        analyzeSwitchStatements()
+        println(" - Analyzing loops")
+        analyzeLoops()
         println(" - Analyzing control flow irregulations")
-
+        analyzeControlFlowIrregulations()
         println(" - Analyzing function calls")
-
+        analyzeFunctionCalls()
         println(" - Calculating the bin score for each block")
         calculateEachBlockBin()
 
@@ -1645,27 +1649,158 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     }
 
     private def analyzeIfStatements(): Unit = {
+        // Analyze blocks
+        for (block <- blockToExpr.keySet) {
 
+        }
+
+        // Analyze functions
+        for (func <- functionDefs) {
+
+        }
     }
 
     private def analyzeSwitchStatements(): Unit = {
+        // Analyze blocks
+        for (block <- blockToExpr.keySet) {
 
+        }
+
+        // Analyze functions
+        for (func <- functionDefs) {
+
+        }
+    }
+
+    private def analyzeLoops(): Unit = {
+        // Analyze blocks
+        for (block <- blockToExpr.keySet) {
+            var score: Double = 0.0
+
+            if (loopsBlocks.contains(block)) {
+                score += loopsBlocks(block)
+            }
+
+            if (blockCapsuling.contains(block)) {
+                for (subBlock <- blockCapsuling(block).filter(b => loopsBlocks.contains(b))) {
+                    score += 0.5*loopsBlocks(subBlock)
+                }
+            }
+
+            score = -1 + Math.pow(1.25, score)
+
+            if (score > 10) {
+                score = 10.0
+            }
+
+            loopsBinBlocks += (block -> Math.round(score).toInt)
+        }
+
+        // Analyze functions
+        for (func <- functionDefs) {
+            var score: Double = 0.0
+
+            if (loopsFunctions.contains(func)) {
+                score += loopsFunctions(func)
+            }
+
+            if (functionBlocks.contains(func)) {
+                for (subBlock <- functionBlocks(func).filter(b => loopsBlocks.contains(b))) {
+                    score += 0.5*loopsBlocks(subBlock)
+                }
+            }
+
+            score = -1 + Math.pow(1.25, score)
+
+            if (score > 10) {
+                score = 10.0
+            }
+
+            loopsBinFunctions += (func -> Math.round(score).toInt)
+        }
     }
 
     private def analyzeControlFlowIrregulations(): Unit = {
+        // Analyze blocks
+        for (block <- blockToExpr.keySet) {
+            var score: Double = 0.0
 
+            if (flowIrregulationsBlocks.contains(block)) {
+                score += flowIrregulationsBlocks(block)
+            }
+
+            if (blockCapsuling.contains(block)) {
+                for (subBlock <- blockCapsuling(block).filter(b => flowIrregulationsBlocks.contains(b))) {
+                    score += 0.5*flowIrregulationsBlocks(subBlock)
+                }
+            }
+
+            score = 11 - Math.pow(1.15, score)
+
+            if (score < 0) {
+                score = 0.0
+            }
+
+            flowBinBlocks += (block -> Math.round(score).toInt)
+        }
+
+        // Analyze functions
+        for (func <- functionDefs) {
+            var score: Double = 0.0
+
+            if (flowIrregulationsFunctions.contains(func)) {
+                score += flowIrregulationsFunctions(func)
+            }
+
+            if (functionBlocks.contains(func)) {
+                for (subBlock <- functionBlocks(func).filter(b => flowIrregulationsFunctions.contains(b))) {
+                    score += 0.5*flowIrregulationsFunctions(subBlock)
+                }
+            }
+
+            score = 11 - Math.pow(1.15, score)
+
+            if (score < 0) {
+                score = 0.0
+            }
+
+            flowIrregulationsFunctions += (func -> Math.round(score).toInt)
+        }
     }
 
     private def analyzeFunctionCalls(): Unit = {
 
     }
 
-    private def analyzeRecursions(): Unit = {
-
-    }
-
     private def calculateEachBlockBin(): Unit = {
+        for (block <- blockToExpr.keySet) {
+            var sum = 0
 
+            if (ifBinBlocks.contains(block)) {
+                sum += ifBinBlocks(block)
+            }
+
+            if (switchBinBlocks.contains(block)) {
+                sum += switchBinBlocks(block)
+            }
+
+            if (loopsBinBlocks.contains(block)) {
+                sum += loopsBinBlocks(block)
+            }
+
+            if (flowBinBlocks.contains(block)) {
+                sum += flowBinBlocks(block)
+            }
+
+            if (callBinBlocks.contains(block)) {
+                sum += callBinBlocks(block)
+            }
+
+            if (binScoreBlocks.contains(block)) {
+                binScoreBlocks -= block
+            }
+            binScoreBlocks += (block -> (sum/50))
+        }
     }
 }
 
