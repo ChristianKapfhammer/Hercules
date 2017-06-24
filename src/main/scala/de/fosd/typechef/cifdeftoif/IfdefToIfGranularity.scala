@@ -1652,24 +1652,112 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     private def analyzeIfStatements(): Unit = {
         // Analyze blocks
         for (block <- blockToExpr.keySet) {
-            //TODO
+            var amountBranches: Double = 0.0
+
+            if (ifStatementsBlocks.contains(block)) {
+                for (v <- ifStatementsBlocks(block)) {
+                    amountBranches += v
+                }
+            }
+
+            if (blockCapsuling.contains(block)) {
+                for (subBlock <- blockCapsuling(block).filter(b => ifStatementsBlocks.contains(b))) {
+                    for (v <- ifStatementsBlocks(subBlock)) {
+                        amountBranches += 0.5 * v
+                    }
+                }
+            }
+
+            var score = -1 + Math.pow(1.1, amountBranches)
+
+            if (score > 10) {
+                score = 10.0
+            }
+
+            ifBinBlocks += (block -> Math.round(score).toInt)
         }
 
         // Analyze functions
         for (func <- functionDefs) {
-            //TODO
+            var amountBranches: Double = 0.0
+
+            if (ifStatementsFunctions.contains(func)) {
+                for (v <- ifStatementsFunctions(func)) {
+                    amountBranches += v
+                }
+            }
+
+            if (functionBlocks.contains(func)) {
+                for (subBlock <- functionBlocks(func).filter(b => ifStatementsBlocks.contains(b))) {
+                    for (v <- ifStatementsBlocks(subBlock)) {
+                        amountBranches += 0.5 * v
+                    }
+                }
+            }
+
+            var score = -1 + Math.pow(1.1, amountBranches)
+
+            if (score > 10) {
+                score = 10.0
+            }
+
+            ifBinFunctions += (func -> Math.round(score).toInt)
         }
     }
 
     private def analyzeSwitchStatements(): Unit = {
         // Analyze blocks
         for (block <- blockToExpr.keySet) {
-            //TODO
+            var amountCases: Double = 0.0
+
+            if (switchStatementsBlocks.contains(block)) {
+                for (v <- switchStatementsBlocks(block)) {
+                    amountCases += v
+                }
+            }
+
+            if (blockCapsuling.contains(block)) {
+                for (subBlock <- blockCapsuling(block).filter(b => switchStatementsBlocks.contains(b))) {
+                    for (v <- switchStatementsBlocks(subBlock)) {
+                        amountCases += 0.5 * v
+                    }
+                }
+            }
+
+            var score = -1 + Math.pow(1.1, amountCases)
+
+            if (score > 10) {
+                score = 10.0
+            }
+
+            switchBinBlocks += (block -> Math.round(score).toInt)
         }
 
         // Analyze functions
         for (func <- functionDefs) {
-            //TODO
+            var amountCases: Double = 0.0
+
+            if (switchStatementsFunctions.contains(func)) {
+                for (v <- switchStatementsFunctions(func)) {
+                    amountCases += v
+                }
+            }
+
+            if (functionBlocks.contains(func)) {
+                for (subBlock <- functionBlocks(func).filter(b => switchStatementsBlocks.contains(b))) {
+                    for (v <- switchStatementsBlocks(subBlock)) {
+                        amountCases += 0.5 * v
+                    }
+                }
+            }
+
+            var score = -1 + Math.pow(1.1, amountCases)
+
+            if (score > 10) {
+                score = 10.0
+            }
+
+            switchBinFunctions += (func -> Math.round(score).toInt)
         }
     }
 
@@ -1754,8 +1842,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             }
 
             if (functionBlocks.contains(func)) {
-                for (subBlock <- functionBlocks(func).filter(b => flowIrregulationsFunctions.contains(b))) {
-                    score += 0.5*flowIrregulationsFunctions(subBlock)
+                for (subBlock <- functionBlocks(func).filter(b => flowIrregulationsBlocks.contains(b))) {
+                    score += 0.5*flowIrregulationsBlocks(subBlock)
                 }
             }
 
@@ -1790,12 +1878,23 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 sum += flowBinFunctions(func)
             }
 
-            var callScore = 0.0
+            // Counting all called functions. Calls within blocks add 0.5 to the score.
+            var callScore: Double = 0.0
 
             if (funcCallsFunctions.contains(func)) {
-                callScore = -1 + Math.pow(1.5, funcCallsFunctions(func).size)
+                callScore = funcCallsFunctions(func).size
             }
-            
+
+            if (functionBlocks.contains(func)) {
+                for (block <- functionBlocks(func).filter(b => funcCallsBlocks.contains(b))) {
+                    for (call <- funcCallsBlocks(block)) {
+                        callScore += 0.5
+                    }
+                }
+            }
+
+            callScore = -1 + Math.pow(1.5, callScore)
+
             if (callScore > 10) {
                 callScore = 10
             }
@@ -1804,12 +1903,49 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 binScoreFunctions -= func
             }
             binScoreFunctions += (func -> Math.round((sum+callScore)/50).toInt)
-
         }
 
         // Analyze blocks and their functions calls
         for (block <- blockToExpr.keySet) {
-            //TODO
+            var score = 0.0
+
+            // Get all called functions
+            var calledFunctions: Set[String] = Set.empty[String]
+            var nextFunctions: Set[String] = Set.empty[String]
+
+            if (funcCallsBlocks.contains(block)) {
+                nextFunctions = funcCallsBlocks(block).map(call => call.functionName)
+            }
+
+            while (nextFunctions.nonEmpty && score <= 10) {
+                var functions: Set[String] = Set.empty[String]
+
+                for (func <- nextFunctions.diff(calledFunctions)) {
+                    calledFunctions += func
+
+                    if (recSets.exists(rec => rec.contains(func))) {
+                        val recSet: Set[String] = recSets.filter(r => r.contains(func)).head
+
+                        calledFunctions = calledFunctions.union(recSet)
+
+                        for (f <- recSet) {
+                            score += 1.25*binScoreFunctions(func)
+                            functions = functions.union(globalFunctionCalls(f).map(f => f.functionName).toSet.diff(recSet))
+                        }
+                    } else {
+                        score += binScoreFunctions(func)
+                        functions = functions.union(globalFunctionCalls(func).map(f => f.functionName).toSet)
+                    }
+                }
+
+                nextFunctions = functions
+            }
+
+            if (score > 10) {
+                score = 10.0
+            }
+
+            callBinBlocks += (block -> Math.round(score).toInt)
         }
     }
 
