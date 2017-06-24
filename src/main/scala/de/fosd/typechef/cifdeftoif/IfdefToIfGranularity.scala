@@ -203,13 +203,8 @@ trait IfdefToIfGranularityInterface {
             id = featureCounter(expr)
         }
 
-        contextToReadableString(expr) + "_" + id
-        //expr.toString() + "_" + java.util.UUID.randomUUID.toString
-    }
-
-    private def contextToReadableString(context: FeatureExpr): String = {
-        val regexPattern = "(defined|definedEx)\\(([a-zA-Z_0-9]+)\\)".r
-        return regexPattern replaceAllIn(context.toTextExpr, "$2")
+        //contextToReadableString(expr) + "_" + id
+        expr.toString() + "_" + java.util.UUID.randomUUID.toString
     }
 
     private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
@@ -242,7 +237,8 @@ trait IfdefToIfGranularityInterface {
             statementToBlock.put(stmt, currBlock)
 
             // Update statementMapping
-            statementMapping.put(stmt, currBlock)
+            val blockNameParts = currBlock.split("_")
+            statementMapping.put(stmt, blockNameParts(blockNameParts.size - 1))
 
             // Update blockCapsuling
             for(key <- currentBlockMapping.keySet.filter(p => p != currentExpr)) {
@@ -1253,7 +1249,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
 }
 
-trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IOUtilities {
+/*trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IOUtilities {
 
     var functionDefs: Set[String] = Set.empty[String]
     var recSets: Set[Set[String]] = Set.empty[Set[String]]
@@ -1261,12 +1257,12 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     var ifStatementsBlocks: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
     var switchStatementsBlocks: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
     var funcCallsBlocks: Map[String, Set[FuncCall]] = Map.empty[String, Set[FuncCall]]
-    var flowIrregulationsBlock: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
+    var flowIrregulationsBlocks: Map[String, Int] = Map.empty[String, Int]
 
     var ifStatementsFunctions: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
     var switchStatementsFunctions: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
     var funcCallsFunctions: Map[String, Set[FuncCall]] = Map.empty[String, Set[FuncCall]]
-    var flowIrregulationsFunctions: Map[String, Set[Int]] = Map.empty[String, Set[Int]]
+    var flowIrregulationsFunctions: Map[String, Int] = Map.empty[String, Int]
 
     var ifBinBlocks: Map[String, Int] = Map.empty[String, Int]
     var switchBinBlocks: Map[String, Int] = Map.empty[String, Int]
@@ -1291,8 +1287,6 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         println(" - Analyzing the code")
         granularity(ast)
 
-        println(" - Calculating the bin score of each category for each function")
-        calculateEachFunctionBin()
         println(" - Calculating the bin score of each category for each block")
         calculateEachBlockBin()
 
@@ -1302,10 +1296,20 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     private def granularity(obj: Any, currentBlock: String = null, currentFunction: String = null): Unit = {
         obj match {
             case x: IfStatement =>
+                var block = currentBlock
+
+                // TODO
+
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        granularity(y, block, currentFunction)
+                    }
+                }
             case SwitchStatement(expr: Expr, One(CompoundStatement(list))) =>
                 var amountCases = 0
 
-                // Count amount of case statements and default statement
+                // TODO
+
                 for (elem <- list) {
                     elem.entry match {
                         case _: CaseStatement | _: DefaultStatement =>
@@ -1320,6 +1324,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             case x: ForStatement =>
                 var block: String = currentBlock
 
+                // TODO
+
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
                         granularity(y, block, currentFunction)
@@ -1329,6 +1335,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             case x: WhileStatement =>
                 var block: String = currentBlock
 
+                // TODO
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
@@ -1339,24 +1346,68 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             case x: DoStatement =>
                 var block: String = currentBlock
 
+                // TODO
+
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
                         granularity(y, block, currentFunction)
                     }
                 }
 
-            case x: BreakStatement =>
-            case x: ContinueStatement =>
+            case ContinueStatement | BreakStatement =>
+                if (statementToBlock.containsKey(obj)) {
+                    val block = statementToBlock.get(obj)
+
+                    if (flowIrregulationsBlocks.contains(block)) {
+                        val count = flowIrregulationsBlocks(block)
+
+                        flowIrregulationsBlocks -= block
+                        flowIrregulationsBlocks += (block -> (count+1))
+                    } else {
+                        flowIrregulationsBlocks += (block -> Set(1))
+                    }
+                } else {
+                    if (flowIrregulationsFunctions.contains(currentFunction)) {
+                        val count = flowIrregulationsFunctions(currentFunction)
+
+                        flowIrregulationsFunctions -= currentFunction
+                        flowIrregulationsFunctions += (currentFunction -> (count+1))
+                    } else {
+                        flowIrregulationsFunctions += (currentFunction -> 1)
+                    }
+                }
             case x: GotoStatement =>
+                var block: String = currentBlock
+
+                if (statementToBlock.containsKey(x)) {
+                    block = statementToBlock.get(x)
+
+                    if (flowIrregulationsBlocks.contains(block)) {
+                        val count = flowIrregulationsBlocks(block)
+
+                        flowIrregulationsBlocks -= block
+                        flowIrregulationsBlocks += (block -> (count+1))
+                    } else {
+                        flowIrregulationsBlocks += (block -> 1)
+                    }
+                } else {
+                    if (flowIrregulationsFunctions.contains(currentFunction)) {
+                        val count = flowIrregulationsFunctions(currentFunction)
+
+                        flowIrregulationsFunctions -= currentFunction
+                        flowIrregulationsFunctions += (currentFunction -> (count+1))
+                    } else {
+                        flowIrregulationsFunctions += (currentFunction -> 1)
+                    }
+                }
 
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        granularity(y, currentBlock, currentFunction)
+                        granularity(y, block, currentFunction)
                     }
                 }
 
             case x: AST =>
-
                 var functionDef = currentFunction
 
                 obj match {
@@ -1414,14 +1465,30 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    private def calculateEachFunctionBin(): Unit = {
+    private def analyzeIfStatements(): Unit = {
+
+    }
+
+    private def analyzeSwitchStatements(): Unit = {
+
+    }
+
+    private def analyzeControlFlowIrregulations(): Unit = {
+
+    }
+
+    private def analyzeFunctionCalls(): Unit = {
+
+    }
+
+    private def analyzeRecursions(): Unit = {
 
     }
 
     private def calculateEachBlockBin(): Unit = {
 
     }
-}
+}*/
 
 class IfdefToIfGranularity extends IfdefToIfGranularityInterface with IfdefToIfGranularityExecCode {
 

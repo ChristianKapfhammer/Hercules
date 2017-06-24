@@ -384,7 +384,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         }
 
         if (id != null) {
-            contextString = id
+            contextString = contextString + "_" + id
         }
 
         val beforeStmt = ExprStatement(PostfixExpr(Id(functionName), FunctionCall(ExprList(List(Opt(trueF3, StringLit(List(Opt(trueF3, "\"" ++ contextString ++ "\"")))))))))
