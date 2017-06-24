@@ -23,7 +23,6 @@ trait IfdefToIfGranularityInterface {
     protected var blockToExpr: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
     protected var blockCapsuling: Map[String, Set[String]] = Map.empty[String, Set[String]]
     protected var featureModel: FeatureModel = _
-    protected var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     protected var dir: String = ""
 
     private var functionCalledBy: Map[String, Set[String]] = Map.empty[String, Set[String]]
@@ -198,12 +197,6 @@ trait IfdefToIfGranularityInterface {
     }
 
     private def createBlockName(expr: FeatureExpr): String = {
-        var id = 0
-        if(featureCounter.contains(expr)) {
-            id = featureCounter(expr)
-        }
-
-        //contextToReadableString(expr) + "_" + id
         expr.toString() + "_" + java.util.UUID.randomUUID.toString
     }
 
@@ -258,19 +251,6 @@ trait IfdefToIfGranularityInterface {
 
                     blockCapsuling += (block -> set)
                 }
-            }
-
-            // Update feature counter
-            if (keysToRemove.nonEmpty || !blockToStatements.contains(currBlock)) {
-                var ftCounter = 0
-
-                if (featureCounter.contains(currentExpr)) {
-                    ftCounter = featureCounter(currentExpr)
-
-                    featureCounter -= currentExpr
-                }
-
-                featureCounter += (currentExpr -> (ftCounter + 1))
             }
         }
     }
