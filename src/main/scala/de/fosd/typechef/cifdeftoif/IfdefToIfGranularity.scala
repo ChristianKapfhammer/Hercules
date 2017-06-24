@@ -1258,6 +1258,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     var flowBinFunctions: Map[String, Int] = Map.empty[String, Int]
 
     var binScoreBlocks: Map[String, Int] = Map.empty[String, Int]
+    var binScoreFunctions: Map[String, Int] = Map.empty[String, Int]
 
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
@@ -1651,24 +1652,24 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     private def analyzeIfStatements(): Unit = {
         // Analyze blocks
         for (block <- blockToExpr.keySet) {
-
+            //TODO
         }
 
         // Analyze functions
         for (func <- functionDefs) {
-
+            //TODO
         }
     }
 
     private def analyzeSwitchStatements(): Unit = {
         // Analyze blocks
         for (block <- blockToExpr.keySet) {
-
+            //TODO
         }
 
         // Analyze functions
         for (func <- functionDefs) {
-
+            //TODO
         }
     }
 
@@ -1769,7 +1770,47 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     }
 
     private def analyzeFunctionCalls(): Unit = {
+        // Analyze single functions and calculate their bin score
+        for (func <- functionDefs) {
+            var sum = 0
 
+            if (ifBinFunctions.contains(func)) {
+                sum += ifBinFunctions(func)
+            }
+
+            if (switchBinFunctions.contains(func)) {
+                sum += switchBinFunctions(func)
+            }
+
+            if (loopsBinFunctions.contains(func)) {
+                sum += loopsBinFunctions(func)
+            }
+
+            if (flowBinFunctions.contains(func)) {
+                sum += flowBinFunctions(func)
+            }
+
+            var callScore = 0.0
+
+            if (funcCallsFunctions.contains(func)) {
+                callScore = -1 + Math.pow(1.5, funcCallsFunctions(func).size)
+            }
+            
+            if (callScore > 10) {
+                callScore = 10
+            }
+
+            if (binScoreFunctions.contains(func)) {
+                binScoreFunctions -= func
+            }
+            binScoreFunctions += (func -> Math.round((sum+callScore)/50).toInt)
+
+        }
+
+        // Analyze blocks and their functions calls
+        for (block <- blockToExpr.keySet) {
+            //TODO
+        }
     }
 
     private def calculateEachBlockBin(): Unit = {
