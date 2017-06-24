@@ -1981,6 +1981,6 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     }
 }
 
-class IfdefToIfGranularity extends IfdefToIfGranularityInterface with IfdefToIfGranularityExecCode {
+class IfdefToIfGranularity extends IfdefToIfGranularityInterface {
 
 }

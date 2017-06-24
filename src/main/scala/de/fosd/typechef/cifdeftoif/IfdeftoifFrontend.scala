@@ -183,10 +183,18 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
 
                             }
 
-                            if (opt.performance && opt.granualExecCode) {
+                            if (opt.performance && opt.granularExecCode) {
                                 println("calculation for granularity by executed code lines started")
 
                                 val granularity = new IfdefToIfGranularity with IfdefToIfGranularityExecCode
+                                val lastSepIndex = opt.getOutputStem().lastIndexOf(System.getProperty("file.separator"))
+
+                                i.setIgnoredStatements(granularity.calculateGranularity(ast, fullFM, opt.getOutputStem().substring(0, lastSepIndex+1), opt.getGToption))
+                                i.setStatementMapping(granularity.getStatementMapping())
+                            } else if (opt.performance && opt.granularBinScore) {
+                                println("calculation for granularity with bin scores started")
+
+                                val granularity = new IfdefToIfGranularity with IfdefToIfGranularityBinScore
                                 val lastSepIndex = opt.getOutputStem().lastIndexOf(System.getProperty("file.separator"))
 
                                 i.setIgnoredStatements(granularity.calculateGranularity(ast, fullFM, opt.getOutputStem().substring(0, lastSepIndex+1), opt.getGToption))
