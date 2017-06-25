@@ -422,6 +422,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
     private var loopCounter: Int = 0
     private var loopScores: Map[Int, Double] = Map.empty[Int, Double]
+    private var functionModifiers: Map[String, Double] = Map.empty[String, Double]
     private var functionDefs: Set[String] = Set.empty[String]
     private var functionScores: Map[String, Double] = Map.empty[String, Double]
     private var singleBlockScores: Map[String, Double] = Map.empty[String, Double]
@@ -666,7 +667,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     // Global for current status of loops for loop score calculation and granularity
     private var loopExited: Map[Int, Boolean] = Map.empty[Int, Boolean]
 
-    private def calculateLoopScores(obj: Any, currentLoopSet: Set[Int] = Set.empty[Int], currentLoop: Int = null.asInstanceOf[Int]): Unit = {
+    private def calculateLoopScores(obj: Any, currentLoopSet: Set[Int] = Set.empty[Int],
+                                    currentLoop: Int = null.asInstanceOf[Int], currentFunction: String = null): Unit = {
         obj match {
             case x: ForStatement =>
                 val counter: Int = loopCounter
@@ -678,7 +680,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
                         if (!loopExited(counter)) {
-                            calculateLoopScores(y, currentLoopSet + counter, counter)
+                            calculateLoopScores(y, currentLoopSet + counter, counter, currentFunction)
                         }
                     }
                 }
@@ -692,7 +694,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
                         if (!loopExited(counter)) {
-                            calculateLoopScores(y, currentLoopSet + counter, counter)
+                            calculateLoopScores(y, currentLoopSet + counter, counter, currentFunction)
                         }
                     }
                 }
@@ -706,7 +708,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
                         if (!loopExited(counter)) {
-                            calculateLoopScores(y, currentLoopSet + counter, counter)
+                            calculateLoopScores(y, currentLoopSet + counter, counter, currentFunction)
                         }
                     }
                 }
@@ -732,25 +734,43 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     loopScores += (y -> score)
                     loopExited += (y -> true)
                 }
+
+                // If there is currently no loop, add the modifier to the current function
+                if (currentLoopSet.isEmpty && currentFunction != null) {
+                    if (functionModifiers.contains(currentFunction)) {
+                        var value = functionModifiers(currentFunction)
+
+                        functionModifiers -= currentFunction
+                        functionModifiers += (currentFunction -> (value*GOTO_WEIGHT))
+                    } else {
+                        functionModifiers += (currentFunction -> GOTO_WEIGHT)
+                    }
+                }
+            case funcDef: FunctionDef =>
+                if (funcDef.productArity > 0) {
+                    for (y <- funcDef.productIterator.toList) {
+                        calculateLoopScores(y, currentLoopSet, currentLoop, funcDef.getName)
+                    }
+                }
             case x: AST =>
                 if (x.productArity > 0) {
                     for (y <- x.productIterator.toList) {
-                        calculateLoopScores(y, currentLoopSet, currentLoop)
+                        calculateLoopScores(y, currentLoopSet, currentLoop, currentFunction)
                     }
                 }
             case x: Opt[_] =>
-                calculateLoopScores(x.entry, currentLoopSet, currentLoop)
+                calculateLoopScores(x.entry, currentLoopSet, currentLoop, currentFunction)
             case One(x) =>
-                calculateLoopScores(x, currentLoopSet, currentLoop)
+                calculateLoopScores(x, currentLoopSet, currentLoop, currentFunction)
             case x: Choice[_] =>
-                calculateLoopScores(x.thenBranch, currentLoopSet, currentLoop)
-                calculateLoopScores(x.elseBranch, currentLoopSet, currentLoop)
+                calculateLoopScores(x.thenBranch, currentLoopSet, currentLoop, currentFunction)
+                calculateLoopScores(x.elseBranch, currentLoopSet, currentLoop, currentFunction)
             case x: List[_] =>
                 for (elem <- x) {
-                    calculateLoopScores(elem, currentLoopSet, currentLoop)
+                    calculateLoopScores(elem, currentLoopSet, currentLoop, currentFunction)
                 }
             case Some(x) =>
-                calculateLoopScores(x, currentLoopSet, currentLoop)
+                calculateLoopScores(x, currentLoopSet, currentLoop, currentFunction)
             case None =>
             case o =>
         }
@@ -989,6 +1009,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private def calculateFunctionScores(): Unit = {
         for (func <- functionDefs) {
             var sum: Double = 0.0
+            var modifier: Double = 1.0
+
+            if (functionModifiers.contains(func)) {
+                // Goto modifiers do not have the same impact on functions than on loops. Thus, we will double the modifier here.
+                modifier = 2*functionModifiers(func)
+            }
 
             if (functionScores.contains(func)) {
                 sum += functionScores(func)
@@ -1005,7 +1031,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 functionScores -= func
             }
 
-            functionScores += (func -> sum)
+            functionScores += (func -> sum*modifier)
         }
 
         // Setting scores for functions which are not defined in this AST
@@ -1981,6 +2007,6 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     }
 }
 
-class IfdefToIfGranularity extends IfdefToIfGranularityInterface {
+abstract class IfdefToIfGranularity extends IfdefToIfGranularityInterface {
 
 }
