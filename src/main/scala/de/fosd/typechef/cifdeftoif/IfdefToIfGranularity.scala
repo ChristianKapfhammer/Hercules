@@ -34,6 +34,9 @@ trait IfdefToIfGranularityInterface {
     // Global for block mapping calculation
     private var currentBlockMapping: Map[FeatureExpr, String] = Map.empty[FeatureExpr, String]
 
+    /**
+      * Calculates the blocks of the code and saves the statements of the code.
+      */
     protected def calculateBlockMapping(obj: Any, currentBlock: FeatureExpr = FeatureExprFactory.True, currentFunction: String = null): Unit = {
         obj match {
             case x: AST =>
@@ -196,10 +199,16 @@ trait IfdefToIfGranularityInterface {
         }
     }
 
+    /**
+      * Creates and returns a block name for the specified expresssion.
+      */
     private def createBlockName(expr: FeatureExpr): String = {
         expr.toString() + "_" + java.util.UUID.randomUUID.toString
     }
 
+    /**
+      * Updates the current block mapping.
+      */
     private def updateBlockMapping(currentExpr: FeatureExpr, stmt: Statement): Unit = {
         if (currentExpr == FeatureExprFactory.True) {
             currentBlockMapping = Map.empty[FeatureExpr, String]
@@ -218,6 +227,7 @@ trait IfdefToIfGranularityInterface {
                 currentBlockMapping -= key
             }
 
+            // Create a new block if the current block was not looked at yet
             if (!currentBlockMapping.contains(currentExpr)) {
                 val newBlock = createBlockName(currentExpr)
                 currentBlockMapping += (currentExpr -> newBlock)
@@ -225,8 +235,6 @@ trait IfdefToIfGranularityInterface {
             }
 
             val currBlock = currentBlockMapping(currentExpr)
-
-            //exprToBlock.put(currentExpr, currBlock)
             statementToBlock.put(stmt, currBlock)
 
             // Update statementMapping
@@ -255,6 +263,10 @@ trait IfdefToIfGranularityInterface {
         }
     }
 
+    /**
+      * Calculates the recursion set in which the specified function is contained. The specified function call is
+      * the start call.
+      */
     private def getRecSet(call: FuncCall): Option[Set[String]] = {
         var visitedFunctions: Map[String, Boolean] = Map.empty[String, Boolean]
         var nextFunctionCalls: Set[FuncCall] = Set.empty[FuncCall]
@@ -335,6 +347,9 @@ trait IfdefToIfGranularityInterface {
 
     }
 
+    /**
+      *
+      */
     private def calculateFunctionsCalledBy(): Unit = {
         for ((func, calls) <- globalFunctionCalls) {
             for (call <- calls) {
@@ -350,6 +365,9 @@ trait IfdefToIfGranularityInterface {
         }
     }
 
+    /**
+      * Calculates all recursions based on the global function calls.
+      */
     protected def calculateRecursiveSets(): Set[Set[String]] = {
         var functionRecSets: Set[Set[String]] = Set.empty[Set[String]]
 
@@ -397,6 +415,12 @@ trait IfdefToIfGranularityInterface {
         functionRecSets
     }
 
+    /**
+      * Initial function of the granularity algorithm.
+      *
+      * Calculates the score of each block and filters the blocks which have a lower score than the specified threshold.
+      * Returns an IdentityHashMap of statements which are going to be ignored.
+      */
     def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int): IdentityHashMap[Any, Boolean]
 }
 
@@ -489,6 +513,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         ignoredStatements
     }
 
+    /**
+      * Reads the configuration file for the weights.
+      */
     private def readConfigFile(): Unit = {
         if (Files.exists(Paths.get("./granularity_config.txt"))) {
             for (c <- Source.fromFile("granularity_config.txt").getLines()) {
@@ -527,6 +554,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
+    /**
+      * Reads the configuration file for the predefined function scores.
+      */
     private def readFunctionConfigFile(): Unit = {
         if (Files.exists(Paths.get("./predefined_function_scores.txt"))) {
             for (c <- Source.fromFile("predefined_function_scores.txt").getLines()) {
@@ -539,6 +569,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
+    /**
+      * Reads the configuration file for the function offsets.
+      */
     private def readFunctionOffsetFile(): Unit = {
         if (Files.exists(Paths.get("./function_offsets.txt"))) {
             for (c <- Source.fromFile("function_offsets.txt").getLines()) {
@@ -667,6 +700,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     // Global for current status of loops for loop score calculation and granularity
     private var loopExited: Map[Int, Boolean] = Map.empty[Int, Boolean]
 
+    /**
+      * Calculates the modificators for the loops and functions. Breaks, continues and gotos within loops only influence
+      * the modifier of the loops. If a goto is not inside a loop, it affects the modifier of the current function.
+      */
     private def calculateLoopScores(obj: Any, currentLoopSet: Set[Int] = Set.empty[Int],
                                     currentLoop: Int = null.asInstanceOf[Int], currentFunction: String = null): Unit = {
         obj match {
@@ -776,6 +813,11 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
+    /**
+      * Calculates the general score of each block and function. Iterates through each AST element and increases the
+      * score of the current statement and current function dependent on the current weight. The weight is adjusted
+      * by special structures in the code like for-loops.
+      */
     private def granularity(obj: Any, currentBlock: String = null, currentFunction: String = null,
                             weight: Double = 1.0, causes: Set[String] = Set.empty[String]): Unit = {
         var newCauses = causes
@@ -957,6 +999,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
+    /**
+      * Increases the score of the specified block and the specified function by the specified weight.
+      */
     private def increaseScore(block: String, currentFunction: String, weight: Double): Unit = {
         if (currentFunction != null) {
 
@@ -984,6 +1029,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
+    /**
+      * Temporarily calculates the scores of all nested blocks. The score of inner blocks is added to the score
+      * of the outer blocks.
+      */
     private def calculateBlockScores(): Unit = {
         var blockScoreChange: Map[String, Double] = Map.empty[String, Double]
 
@@ -1006,6 +1055,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         blockScores = blockScoreChange
     }
 
+    /**
+      * Calculates the general function scores. The score of each block is added to the function score in which the
+      * blokc is located.
+      */
     private def calculateFunctionScores(): Unit = {
         for (func <- functionDefs) {
             var sum: Double = 0.0
@@ -1047,6 +1100,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     var visitedCalledFunctions: Set[String] = Set.empty[String]
     var callCauses: Set[String] = Set.empty[String]
 
+    /**
+      * Cares about the function calls. For each function call we calculate a value consisting of all called functions.
+      * Recursions get their own value and won't be entered a second time.
+      */
     private def careFunctionCalls(): Unit = {
         var functionRecSetMapping: Map[String, Set[String]] = Map.empty[String, Set[String]]
         var recSetValue: Map[String, Double] = Map.empty[String, Double]
@@ -1203,6 +1260,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
+    /**
+      * Finalizes the score calculation. Summarizes all influences of each block.
+      */
     private def finalizeBlockScores() : Unit = {
         var blockScoreChange: Map[String, Double] = Map.empty[String, Double]
 
@@ -1239,6 +1299,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         blockScores = blockScoreChange
     }
 
+    /**
+      * Adds a cause to the block why the score of the specified block was created like it is.
+      */
     private def addScoreCause(block: String, scoreCause: String) : Unit = {
 
         if (scoreCauses.contains(block)) {
