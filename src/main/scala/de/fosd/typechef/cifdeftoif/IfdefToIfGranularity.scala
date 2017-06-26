@@ -22,6 +22,7 @@ trait IfdefToIfGranularityInterface {
     protected var functionBlocks: Map[String, Set[String]] = Map.empty[String, Set[String]]
     protected var blockToExpr: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
     protected var blockCapsuling: Map[String, Set[String]] = Map.empty[String, Set[String]]
+    protected var featureCounter: Map[FeatureExpr, Int] = Map.empty[FeatureExpr, Int]
     protected var featureModel: FeatureModel = _
     protected var dir: String = ""
 
@@ -203,7 +204,18 @@ trait IfdefToIfGranularityInterface {
       * Creates and returns a block name for the specified expresssion.
       */
     private def createBlockName(expr: FeatureExpr): String = {
-        expr.toString() + "_" + java.util.UUID.randomUUID.toString
+        var id = 0
+            if(featureCounter.contains(expr)) {
+                id = featureCounter(expr)
+            }
+
+        contextToReadableString(expr) + "_" + id
+        //expr.toString() + "_" + java.util.UUID.randomUUID.toString
+    }
+
+    private def contextToReadableString(context: FeatureExpr): String = {
+        val regexPattern = "(defined|definedEx)\\(([a-zA-Z_0-9]+)\\)".r
+        return regexPattern replaceAllIn(context.toTextExpr, "$2")
     }
 
     /**
@@ -238,8 +250,9 @@ trait IfdefToIfGranularityInterface {
             statementToBlock.put(stmt, currBlock)
 
             // Update statementMapping
-            val blockNameParts = currBlock.split("_")
-            statementMapping.put(stmt, blockNameParts(blockNameParts.size - 1))
+            //val blockNameParts = currBlock.split("_")
+            //statementMapping.put(stmt, blockNameParts(blockNameParts.size - 1))
+            statementMapping.put(stmt, currBlock)
 
             // Update blockCapsuling
             for(key <- currentBlockMapping.keySet.filter(p => p != currentExpr)) {
@@ -259,6 +272,18 @@ trait IfdefToIfGranularityInterface {
 
                     blockCapsuling += (block -> set)
                 }
+            }
+
+            // Update feature counter
+            if (keysToRemove.nonEmpty || !blockToStatements.contains(currBlock)) {
+                var ftCounter = 0
+
+                if (featureCounter.contains(currentExpr)) {
+                    ftCounter = featureCounter(currentExpr)
+                    featureCounter -= currentExpr
+                }
+
+                featureCounter += (currentExpr -> (ftCounter + 1))
             }
         }
     }
