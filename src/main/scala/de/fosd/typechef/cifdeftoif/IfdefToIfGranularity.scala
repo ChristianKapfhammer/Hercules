@@ -2095,6 +2095,48 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     }
 }
 
+trait IfdefToIfGranularityPerformanceFiltering extends IfdefToIfGranularityInterface with IOUtilities {
+
+    private var blockPerformances: Map[String, Double] = Map.empty[String, Double]
+
+    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int): IdentityHashMap[Any, Boolean] = {
+        val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
+
+        readPerformanceFile()
+
+        for ((block, performance) <- blockPerformances) {
+            if (blockToStatements.contains(block) && performance < threshold) {
+                val statements = blockToStatements(block)
+
+                statements.keySet().toArray.foreach({
+                    case i@IfStatement(_, One(CompoundStatement(list)), _, _) =>
+                        ignoredStatements.put(i, performance < threshold)
+
+                        if (list.size == 1) {
+                            ignoredStatements.put(list.head.entry, performance < threshold)
+                        }
+                    case s: Statement =>
+                        ignoredStatements.put(s, performance < threshold)
+                })
+            }
+        }
+
+        ignoredStatements
+    }
+
+    private def readPerformanceFile(): Unit = {
+        if (Files.exists(Paths.get("./blockPerformances.txt"))) {
+            for (c <- Source.fromFile("blockPerformances.txt").getLines()) {
+                val configParts = c.split(",")
+
+                if (configParts.size == 2) {
+                    blockPerformances += (configParts(0) -> configParts(1).toDouble)
+                }
+            }
+        }
+    }
+}
+
 abstract class IfdefToIfGranularity extends IfdefToIfGranularityInterface {
 
 }
