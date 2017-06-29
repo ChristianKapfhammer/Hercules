@@ -513,7 +513,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         careFunctionCalls() // Adds function scores to blocks
         println(" - Finalizing block scores")
         finalizeBlockScores()
-
+        println(" - Filtering blocks")
         blockScores.foreach(block => {
             if (block._1 != null && blockToStatements.contains(block._1) && block._2 < threshold) {
                 val statements = blockToStatements(block._1)
@@ -1395,7 +1395,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         analyzeFunctionCalls()
         println(" - Calculating the bin score for each block")
         calculateEachBlockBin()
-
+        println(" - Filtering blocks")
         binScoreBlocks.foreach(block => {
             if (block._1 != null && blockToStatements.contains(block._1) && block._2 < threshold) {
                 val statements = blockToStatements(block._1)
@@ -2104,6 +2104,9 @@ trait IfdefToIfGranularityPerformanceFiltering extends IfdefToIfGranularityInter
 
         readPerformanceFile()
 
+        println(" - Calculating block mapping")
+        calculateBlockMapping(ast)
+        println(" - Filtering blocks")
         for ((block, performance) <- blockPerformances) {
             if (blockToStatements.contains(block) && performance < threshold) {
                 val statements = blockToStatements(block)
