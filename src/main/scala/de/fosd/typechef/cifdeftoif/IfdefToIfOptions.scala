@@ -14,6 +14,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
     private final val F_BLOCKCOVERAGETEST: Char = Options.genOptionId()
     private final val F_GRANULAREXECCODE: Char = Options.genOptionId()
     private final val F_GRANULARBINSCORE: Char = Options.genOptionId()
+    private final val F_GRANULARPERFFILTER: Char = Options.genOptionId()
     private final val F_SIMPLE_SWITCH_TRANSFORMATION: Char = Options.genOptionId
     private final val F_FEATURECONFIG: Char = Options.genOptionId
     private final val F_DECLUSE: Char = Options.genOptionId
@@ -28,6 +29,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
     var blockCoverageTest: Boolean = false
     var granularExecCode: Boolean = false
     var granularBinScore: Boolean = false
+    var granularPerfFilter: Boolean = false
     var simple_switch_transformation: Boolean = false
     var externoptions: Boolean = true
     var featureConfig: Boolean = false
@@ -71,6 +73,8 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
                 new Options.Option("granularexeccode", LongOpt.REQUIRED_ARGUMENT, F_GRANULAREXECCODE, "threshold",
                     "Calculates the lines of code of each code block."),
                 new Options.Option("granularbinscore", LongOpt.REQUIRED_ARGUMENT, F_GRANULARBINSCORE, "threshold",
+                    "Calculates the bin score each code block."),
+                new Options.Option("granularperffilter", LongOpt.REQUIRED_ARGUMENT, F_GRANULARPERFFILTER, "threshold",
                     "Calculates the bin score each code block."),
                 new Options.Option("externoptions", LongOpt.NO_ARGUMENT, F_EXTERNOPTIONS, null,
                     "Ifdeftoif transformation feature variables are exported into an external optionstruct.h file instead of adding them to the beginning of the transformed file."),
@@ -156,6 +160,19 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
             ifdeftoifnocheck = true
             performance = true
             granularBinScore = true
+        } else if (c == F_GRANULARPERFFILTER) {
+            try {
+                gt = g.getOptarg.toInt
+            } catch {
+                case e: Exception => throw new OptionException("Cannot transform " + g.getOptarg + " into number")
+            }
+
+            parse = true
+            typecheck = true
+            ifdeftoif = true
+            ifdeftoifnocheck = true
+            performance = true
+            granularPerfFilter = true
         } else if (c == F_EXTERNOPTIONS) {
             parse = true
             typecheck = true
