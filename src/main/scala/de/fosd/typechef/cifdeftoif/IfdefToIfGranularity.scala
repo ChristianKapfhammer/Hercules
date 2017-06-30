@@ -1422,8 +1422,6 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         val pw = new PrintWriter(new File(dir + "map.csv"))
         var string = ""
 
-        println(dir)
-
         for ((k, v) <- binScoreBlocks) {
             val id = k.split("_").last
             string = string + id + "," + k.substring(0, k.length-id.length-1) + "," + v.toString + "\n"
