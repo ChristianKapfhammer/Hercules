@@ -2117,7 +2117,7 @@ trait IfdefToIfGranularityPerformanceFiltering extends IfdefToIfGranularityInter
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Double = 2.0): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
 
-        readPerformanceFile(outputString)
+        readPerformanceFile(outputDir)
 
         println(" - Calculating block mapping")
         calculateBlockMapping(ast)
