@@ -2072,7 +2072,11 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                             functions = functions.union(globalFunctionCalls(f).map(f => f.functionName).toSet.diff(recSet))
                         }
                     } else {
-                        score += binScoreFunctions(func)
+                        if (binScoreFunctions.contains(func)) {
+                            score += binScoreFunctions(func)
+                        } else {
+                            score += 1
+                        }
 
                         if (globalFunctionCalls.contains(func)) {
                             functions = functions.union(globalFunctionCalls(func).map(f => f.functionName).toSet)
