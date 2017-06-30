@@ -37,7 +37,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
     private var featureConfigFile: String = ""
     private var md: String = ""
     private var bcPath: String = ""
-    private var gt: Integer = null
+    private var gt: Double = null
 
     def getFeatureConfigFilename: String = featureConfigFile
 
@@ -45,7 +45,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
 
     def getBCFilename: String = bcPath
 
-    def getGToption: Integer = gt
+    def getGToption: Double = gt
 
     protected override def getOptionGroups() = {
         val groups = new util.ArrayList[OptionGroup](super.getOptionGroups())
@@ -136,7 +136,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
             blockCoverageTest = true
         } else if (c == F_GRANULAREXECCODE) {
             try {
-                gt = g.getOptarg.toInt
+                gt = g.getOptarg.toDouble
             } catch {
                 case e: Exception => throw new OptionException("Cannot transform " + g.getOptarg + " into number")
             }
@@ -149,7 +149,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
             granularExecCode = true
         } else if (c == F_GRANULARBINSCORE) {
             try {
-                gt = g.getOptarg.toInt
+                gt = g.getOptarg.toDouble
             } catch {
                 case e: Exception => throw new OptionException("Cannot transform " + g.getOptarg + " into number")
             }
@@ -162,7 +162,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
             granularBinScore = true
         } else if (c == F_GRANULARPERFFILTER) {
             try {
-                gt = g.getOptarg.toInt
+                gt = g.getOptarg.toDouble
             } catch {
                 case e: Exception => throw new OptionException("Cannot transform " + g.getOptarg + " into number")
             }

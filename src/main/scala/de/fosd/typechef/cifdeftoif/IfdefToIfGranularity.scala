@@ -446,7 +446,7 @@ trait IfdefToIfGranularityInterface {
       * Calculates the score of each block and filters the blocks which have a lower score than the specified threshold.
       * Returns an IdentityHashMap of statements which are going to be ignored.
       */
-    def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int): IdentityHashMap[Any, Boolean]
+    def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Double): IdentityHashMap[Any, Boolean]
 }
 
 trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IOUtilities {
@@ -487,7 +487,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var multiplicationBlockCounter: Int = 0
     private var divisionBlockCounter: Int = 0
 
-    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int = 2): IdentityHashMap[Any, Boolean] = {
+    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Double = 2.0): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
 
         featureModel = fm
@@ -1374,7 +1374,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     var binScoreBlocks: Map[String, Int] = Map.empty[String, Int]
     var binScoreFunctions: Map[String, Int] = Map.empty[String, Int]
 
-    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int): IdentityHashMap[Any, Boolean] = {
+    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Double = 2.0): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
 
         println(" - Calculating block mapping")
@@ -1413,7 +1413,22 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             }
         })
 
+        writeMapFile()
+
         ignoredStatements
+    }
+    private def writeMapFile(): Unit = {
+        val pw = new PrintWriter(new File(dir + "map.csv"))
+
+        var string = ""
+
+        for ((k, v) <- binScoreBlocks) {
+            val id = k.split("_").last
+            string = string + id + "," + k.substring(0, k.length-id.length-1) + "," + v.toString + "\n"
+        }
+
+        pw.write(string)
+        pw.close()
     }
 
     private def granularity(obj: Any, currentBlock: String = null, currentFunction: String = null): Unit = {
@@ -2099,7 +2114,7 @@ trait IfdefToIfGranularityPerformanceFiltering extends IfdefToIfGranularityInter
 
     private var blockPerformances: Map[String, Double] = Map.empty[String, Double]
 
-    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Int): IdentityHashMap[Any, Boolean] = {
+    override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Double = 2.0): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
 
         readPerformanceFile()
