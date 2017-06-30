@@ -1386,14 +1386,24 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         recSets = calculateRecursiveSets()
         println(" - Analyzing if statements")
         analyzeIfStatements()
+        println(ifStatementsBlocks)
+        println(ifStatementsFunctions)
         println(" - Analyzing switch statements")
         analyzeSwitchStatements()
+        println(switchStatementsBlocks)
+        println(switchStatementsFunctions)
         println(" - Analyzing loops")
         analyzeLoops()
+        println(loopsBlocks)
+        println(loopsFunctions)
         println(" - Analyzing control flow irregulations")
         analyzeControlFlowIrregulations()
+        println(flowIrregulationsBlocks)
+        println(flowIrregulationsFunctions)
         println(" - Analyzing function calls")
         analyzeFunctionCalls()
+        println(funcCallsBlocks)
+        println(funcCallsFunctions)
         println(" - Calculating the bin score for each block")
         calculateEachBlockBin()
         println(" - Filtering blocks")
@@ -1797,7 +1807,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            var score = -1 + Math.pow(1.1, amountBranches)
+            var score = -1 + Math.pow(1.3, amountBranches)
 
             if (score > 10) {
                 score = 10.0
@@ -1989,7 +1999,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     private def analyzeFunctionCalls(): Unit = {
         // Analyze single functions and calculate their bin score
         for (func <- functionDefs) {
-            var sum = 0
+            var sum: Double = 0
 
             if (ifBinFunctions.contains(func)) {
                 sum += ifBinFunctions(func)
