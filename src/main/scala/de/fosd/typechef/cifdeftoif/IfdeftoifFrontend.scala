@@ -203,9 +203,8 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                                 println("calculation for granularity with performance filtering started")
 
                                 val granularity = new IfdefToIfGranularity with IfdefToIfGranularityPerformanceFiltering
-                                val lastSepIndex = opt.getOutputStem().lastIndexOf(System.getProperty("file.separator"))
 
-                                i.setIgnoredStatements(granularity.calculateGranularity(ast, fullFM, opt.getOutputStem().substring(0, lastSepIndex+1), opt.getGToption))
+                                i.setIgnoredStatements(granularity.calculateGranularity(ast, fullFM, opt.getPFFilename, 0.0))
                                 i.setStatementMapping(granularity.getStatementMapping())
                             }
 

@@ -2117,7 +2117,7 @@ trait IfdefToIfGranularityPerformanceFiltering extends IfdefToIfGranularityInter
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Double = 2.0): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
 
-        readPerformanceFile()
+        readPerformanceFile(outputString)
 
         println(" - Calculating block mapping")
         calculateBlockMapping(ast)
@@ -2142,16 +2142,15 @@ trait IfdefToIfGranularityPerformanceFiltering extends IfdefToIfGranularityInter
         ignoredStatements
     }
 
-    private def readPerformanceFile(): Unit = {
-        if (Files.exists(Paths.get("./blockPerformances.txt"))) {
-            for (c <- Source.fromFile("blockPerformances.txt").getLines()) {
-                val configParts = c.split(",")
+    private def readPerformanceFile(fileString: String): Unit = {
+        for (c <- Source.fromFile(fileString).getLines()) {
+            val configParts = c.split(",")
 
-                if (configParts.size == 2) {
-                    blockPerformances += (configParts(0) -> configParts(1).toDouble)
-                }
+            if (configParts.size == 2) {
+                blockPerformances += (configParts(0) -> configParts(1).toDouble)
             }
         }
+
     }
 }
 
