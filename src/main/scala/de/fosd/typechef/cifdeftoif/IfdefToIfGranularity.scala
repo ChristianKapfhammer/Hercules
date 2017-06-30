@@ -1464,14 +1464,14 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                         ifStatementsBlocks += (block -> Set(ifBranches))
                     }
                 } else {
-                    if (ifStatementsFunctions.contains(block)) {
-                        var set = ifStatementsFunctions(block)
+                    if (ifStatementsFunctions.contains(currentFunction)) {
+                        var set = ifStatementsFunctions(currentFunction)
                         set += ifBranches
 
-                        ifStatementsFunctions -= block
-                        ifStatementsFunctions += (block -> set)
+                        ifStatementsFunctions -= currentFunction
+                        ifStatementsFunctions += (currentFunction -> set)
                     } else {
-                        ifStatementsFunctions += (block -> Set(ifBranches))
+                        ifStatementsFunctions += (currentFunction -> Set(ifBranches))
                     }
                 }
 
@@ -1509,14 +1509,14 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                         switchStatementsBlocks += (block -> Set(amountCases))
                     }
                 } else {
-                    if (switchStatementsFunctions.contains(block)) {
-                        var set = switchStatementsFunctions(block)
+                    if (switchStatementsFunctions.contains(currentFunction)) {
+                        var set = switchStatementsFunctions(currentFunction)
                         set += amountCases
 
-                        switchStatementsFunctions -= block
-                        switchStatementsFunctions += (block -> set)
+                        switchStatementsFunctions -= currentFunction
+                        switchStatementsFunctions += (currentFunction -> set)
                     } else {
-                        switchStatementsFunctions += (block -> Set(amountCases))
+                        switchStatementsFunctions += (currentFunction -> Set(amountCases))
                     }
                 }
 
@@ -1729,14 +1729,14 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                             }
 
                             // Update function calls in blocks
-                            if (funcCallsBlocks.contains(currentFunction)) {
-                                var set = funcCallsBlocks(currentFunction)
+                            if (funcCallsBlocks.contains(currentBlock)) {
+                                var set = funcCallsBlocks(currentBlock)
                                 set += tuple
 
-                                funcCallsBlocks -= currentFunction
-                                funcCallsBlocks += (currentFunction -> set)
+                                funcCallsBlocks -= currentBlock
+                                funcCallsBlocks += (currentBlock -> set)
                             } else {
-                                funcCallsBlocks += (currentFunction -> Set(tuple))
+                                funcCallsBlocks += (currentBlock -> Set(tuple))
                             }
                         } else {
                             // Add function call to general map
