@@ -2080,7 +2080,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
     private def calculateEachBlockBin(): Unit = {
         for (block <- blockToExpr.keySet) {
-            var sum = 0
+            var sum: Double = 0
 
             if (ifBinBlocks.contains(block)) {
                 sum += ifBinBlocks(block)
@@ -2105,7 +2105,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             if (binScoreBlocks.contains(block)) {
                 binScoreBlocks -= block
             }
-            binScoreBlocks += (block -> (sum/50))
+            binScoreBlocks += (block -> ((sum/50)*10).toInt)
         }
     }
 }
