@@ -37,7 +37,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
     private var featureConfigFile: String = ""
     private var md: String = ""
     private var bcPath: String = ""
-    private var gt: Double = null
+    private var gt: Double = 0.0
     private var pfPath: String = ""
 
     def getFeatureConfigFilename: String = featureConfigFile
