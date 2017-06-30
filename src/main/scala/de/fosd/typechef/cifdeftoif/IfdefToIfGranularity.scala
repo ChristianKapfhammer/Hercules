@@ -1376,6 +1376,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Double = 2.0): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
+        dir = outputDir
 
         println(" - Calculating block mapping")
         calculateBlockMapping(ast)
