@@ -1418,13 +1418,42 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
         ignoredStatements
     }
+
+    var ifBinBlocks: Map[String, Int] = Map.empty[String, Int]
+    var switchBinBlocks: Map[String, Int] = Map.empty[String, Int]
+    var loopsBinBlocks: Map[String, Int] = Map.empty[String, Int]
+    var callBinBlocks: Map[String, Int] = Map.empty[String, Int]
+    var flowBinBlocks: Map[String, Int] = Map.empty[String, Int]
+
     private def writeMapFile(): Unit = {
         val pw = new PrintWriter(new File(dir + "map.csv"))
         var string = ""
 
         for ((k, v) <- binScoreBlocks) {
+            var ifBin = 0
+            var switchBin = 0
+            var loopsBin = 0
+            var callBin = 0
+            var flowBin = 0
+
+            if (ifBinBlocks.contains(k)) {
+                ifBin = ifBinBlocks(k)
+            }
+            if (switchBinBlocks.contains(k)) {
+                switchBin = switchBinBlocks(k)
+            }
+            if (loopsBinBlocks.contains(k)) {
+                loopsBin = loopsBinBlocks(k)
+            }
+            if (callBinBlocks.contains(k)) {
+                callBin = callBinBlocks(k)
+            }
+            if (flowBinBlocks.contains(k)) {
+                flowBin = flowBinBlocks(k)
+            }
+
             val id = k.split("_").last
-            string = string + id + "," + k.substring(0, k.length-id.length-1) + "," + v.toString + "\n"
+            string = string + id + "," + k.substring(0, k.length-id.length-1) + "," + v.toString + "," + ifBin.toString + "," + switchBin.toString + "," + loopsBin.toString + "," + callBin.toString + "," + flowBin.toString + "\n"
         }
 
         pw.write(string)
