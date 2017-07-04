@@ -179,6 +179,14 @@ trait IfdefToIfGranularityInterface {
                                             cond = cond.&(conditionalVariables(v))
                                         }
                                     }
+                                case s: SwitchStatement =>
+                                    var setOfVariables = getUsedVariablesFromTree(s.expr)
+
+                                    for (v <- setOfVariables) {
+                                        if (conditionalVariables.contains(v)) {
+                                            cond = cond.&(conditionalVariables(v))
+                                        }
+                                    }
                                 case x => // All other statements
                                     var setOfVariables = getUsedVariablesFromTree(x)
 
