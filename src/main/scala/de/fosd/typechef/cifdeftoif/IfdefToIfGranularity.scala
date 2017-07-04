@@ -34,12 +34,27 @@ trait IfdefToIfGranularityInterface {
 
     // Global for block mapping calculation
     private var currentBlockMapping: Map[FeatureExpr, String] = Map.empty[FeatureExpr, String]
+    private var conditionalVariables: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
 
     /**
       * Calculates the blocks of the code and saves the statements of the code.
       */
     protected def calculateBlockMapping(obj: Any, currentBlock: FeatureExpr = FeatureExprFactory.True, currentFunction: String = null): Unit = {
         obj match {
+            case x: InitDeclarator =>
+                // Only look at declarations which take place outside functions
+                if (currentFunction == null) {
+                    val setOfConditions: Set[FeatureExpr] = getAllConditionsFromTree(x)
+                    var cond = FeatureExprFactory.True
+
+                    for (c <- setOfConditions) {
+                        cond = cond.&(c)
+                    }
+
+                    if (cond != FeatureExprFactory.True) {
+                        conditionalVariables += (x.getName -> cond)
+                    }
+                }
             case x: AST =>
 
                 var function = currentFunction
@@ -86,6 +101,14 @@ trait IfdefToIfGranularityInterface {
                                             }
                                         case _ =>
                                     }
+
+                                    var setOfVariables = getUsedVariablesFromTree(i.condition)
+
+                                    for (v <- setOfVariables) {
+                                        if (conditionalVariables.contains(v)) {
+                                            cond = cond.&(conditionalVariables(v))
+                                        }
+                                    }
                                 case e: ElifStatement => // ElifStatement is no Statement (?!?)
                                     e.condition match {
                                         case c: Choice[_] =>
@@ -100,6 +123,14 @@ trait IfdefToIfGranularityInterface {
                                                 }
                                             }
                                         case _ =>
+                                    }
+
+                                    var setOfVariables = getUsedVariablesFromTree(e.condition)
+
+                                    for (v <- setOfVariables) {
+                                        if (conditionalVariables.contains(v)) {
+                                            cond = cond.&(conditionalVariables(v))
+                                        }
                                     }
                                 case w: WhileStatement =>
                                     w.s match {
@@ -116,6 +147,14 @@ trait IfdefToIfGranularityInterface {
                                             }
                                         case _ =>
                                     }
+
+                                    var setOfVariables = getUsedVariablesFromTree(w.s)
+
+                                    for (v <- setOfVariables) {
+                                        if (conditionalVariables.contains(v)) {
+                                            cond = cond.&(conditionalVariables(v))
+                                        }
+                                    }
                                 case d: DoStatement =>
                                     d.s match {
                                         case c: Choice[_] =>
@@ -131,8 +170,22 @@ trait IfdefToIfGranularityInterface {
                                             }
                                         case _ =>
                                     }
-                                case _ =>
 
+                                    var setOfVariables = getUsedVariablesFromTree(d.s)
+
+                                    for (v <- setOfVariables) {
+                                        if (conditionalVariables.contains(v)) {
+                                            cond = cond.&(conditionalVariables(v))
+                                        }
+                                    }
+                                case x => // All other statements
+                                    var setOfVariables = getUsedVariablesFromTree(x)
+
+                                    for (v <- setOfVariables) {
+                                        if (conditionalVariables.contains(v)) {
+                                            cond = cond.&(conditionalVariables(v))
+                                        }
+                                    }
                             }
 
                             updateBlockMapping(cond, s)
@@ -200,8 +253,78 @@ trait IfdefToIfGranularityInterface {
         }
     }
 
+    private def getAllConditionsFromTree(obj: Any): Set[FeatureExpr] = {
+        var set: Set[FeatureExpr] = Set.empty[FeatureExpr]
+
+        obj match {
+            case x: AST =>
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        set = set.union(getAllConditionsFromTree(y))
+                    }
+                }
+            case x: Opt[_] =>
+                if (x.condition != FeatureExprFactory.True || x.condition != FeatureExprFactory.False) {
+                    set += x.condition
+                }
+
+                set = set.union(getAllConditionsFromTree(x.entry))
+            case One(x) =>
+                set = set.union(getAllConditionsFromTree(x))
+            case x: Choice[_] =>
+                if (x.condition != FeatureExprFactory.True || x.condition != FeatureExprFactory.False) {
+                    set += x.condition
+                }
+
+                set = set.union(getAllConditionsFromTree(x.thenBranch))
+                set = set.union(getAllConditionsFromTree(x.elseBranch))
+            case x: List[_] =>
+                for (elem <- x) {
+                    set = set.union(getAllConditionsFromTree(elem))
+                }
+            case Some(x) =>
+                set = set.union(getAllConditionsFromTree(x))
+            case None =>
+            case o =>
+        }
+
+        set
+    }
+
+    private def getUsedVariablesFromTree(obj: Any): Set[String] = {
+        var set: Set[String] = Set.empty[String]
+
+        obj match {
+            case x: Id =>
+                set += x.name
+            case x: AST =>
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList) {
+                        set = set.union(getUsedVariablesFromTree(y))
+                    }
+                }
+            case x: Opt[_] =>
+                set = set.union(getUsedVariablesFromTree(x.entry))
+            case One(x) =>
+                set = set.union(getUsedVariablesFromTree(x))
+            case x: Choice[_] =>
+                set = set.union(getUsedVariablesFromTree(x.thenBranch))
+                set = set.union(getUsedVariablesFromTree(x.elseBranch))
+            case x: List[_] =>
+                for (elem <- x) {
+                    set = set.union(getUsedVariablesFromTree(elem))
+                }
+            case Some(x) =>
+                set = set.union(getUsedVariablesFromTree(x))
+            case None =>
+            case o =>
+        }
+
+        set
+    }
+
     /**
-      * Creates and returns a block name for the specified expresssion.
+      * Creates and returns a block name for the specified expression.
       */
     private def createBlockName(expr: FeatureExpr): String = {
         var id = 0
