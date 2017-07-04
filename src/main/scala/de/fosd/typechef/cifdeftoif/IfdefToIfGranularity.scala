@@ -35,6 +35,7 @@ trait IfdefToIfGranularityInterface {
     // Global for block mapping calculation
     private var currentBlockMapping: Map[FeatureExpr, String] = Map.empty[FeatureExpr, String]
     private var conditionalVariables: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
+    private var conditionalVariablesExpr: FeatureExpr = FeatureExprFactory.createDefinedExternal("COND_VAR")
 
     /**
       * Calculates the blocks of the code and saves the statements of the code.
@@ -52,7 +53,7 @@ trait IfdefToIfGranularityInterface {
                     }
 
                     if (cond != FeatureExprFactory.True) {
-                        conditionalVariables += (x.getName -> cond)
+                        conditionalVariables += (x.getName -> conditionalVariablesExpr)
                     }
                 }
             case x: AST =>
