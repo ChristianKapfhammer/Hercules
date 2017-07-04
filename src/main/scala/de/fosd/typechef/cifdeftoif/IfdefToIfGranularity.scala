@@ -356,6 +356,8 @@ trait IfdefToIfGranularityInterface {
                 if (!(key.collectDistinctFeatureObjects subsetOf currentExpr.collectDistinctFeatureObjects)
                     || !currentExpr.and(key).implies(key).isTautology() || key.implies(currentExpr.and(key)).isTautology()) {
                     keysToRemove += key
+                } else if (!currentExpr.and(key).isSatisfiable()) {
+                    keysToRemove += key
                 }
             }
 
