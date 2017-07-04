@@ -2275,9 +2275,9 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         calculateBlockMapping(ast)
         println(" - Analyzing the code")
         granularity(ast)
-        println(ifStatementsBlocks)
-        println(switchStatementsBlocks)
-        println(loopsBlocks)
+        for (entry <- funcCallsBlocks) {
+            println(entry._1 + " -> " + entry._2.size)
+        }
         println(" - Calculating recursions")
         recSets = calculateRecursiveSets()
         println(" - Analyzing if statements")
