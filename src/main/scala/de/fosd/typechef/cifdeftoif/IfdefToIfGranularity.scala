@@ -148,7 +148,7 @@ trait IfdefToIfGranularityInterface {
                                         case _ =>
                                     }
 
-                                    var setOfVariables = getUsedVariablesFromTree(w.s)
+                                    var setOfVariables = getUsedVariablesFromTree(w.expr)
 
                                     for (v <- setOfVariables) {
                                         if (conditionalVariables.contains(v)) {
@@ -171,7 +171,7 @@ trait IfdefToIfGranularityInterface {
                                         case _ =>
                                     }
 
-                                    var setOfVariables = getUsedVariablesFromTree(d.s)
+                                    var setOfVariables = getUsedVariablesFromTree(d.expr)
 
                                     for (v <- setOfVariables) {
                                         if (conditionalVariables.contains(v)) {
@@ -2826,6 +2826,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             }
 
             if (blockCapsuling.contains(block)) {
+                println(block + " - > " + blockCapsuling(block))
+
                 for (subBlock <- blockCapsuling(block).filter(b => loopsBlocks.contains(b))) {
                     score += 0.5*loopsBlocks(subBlock)
                 }
