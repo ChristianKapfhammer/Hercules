@@ -1419,12 +1419,6 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         ignoredStatements
     }
 
-    var ifBinBlocks: Map[String, Int] = Map.empty[String, Int]
-    var switchBinBlocks: Map[String, Int] = Map.empty[String, Int]
-    var loopsBinBlocks: Map[String, Int] = Map.empty[String, Int]
-    var callBinBlocks: Map[String, Int] = Map.empty[String, Int]
-    var flowBinBlocks: Map[String, Int] = Map.empty[String, Int]
-
     private def writeMapFile(): Unit = {
         val pw = new PrintWriter(new File(dir + "map.csv"))
         var string = ""
