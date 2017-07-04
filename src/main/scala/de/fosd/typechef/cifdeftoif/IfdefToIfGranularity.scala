@@ -2267,8 +2267,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         calculateBlockMapping(ast)
         println(" - Analyzing the code")
         granularity(ast)
-        println(loopsBlocks)
-        println(blockCapsuling)
+        println(funcCallsBlocks)
         println(" - Calculating recursions")
         recSets = calculateRecursiveSets()
         println(" - Analyzing if statements")
@@ -2707,7 +2706,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            var score = Math.pow(-(0.75 * amountBranches - 4), 2) + 10
+            var score = 10 - Math.pow(0.75 * amountBranches - 4, 2)
             //var score = -1 + Math.pow(1.1, amountBranches)
 
             //if (score > 10) {
@@ -2739,7 +2738,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            var score = Math.pow(-(0.75 * amountBranches - 4), 2) + 10
+            var score = 10 - Math.pow(0.75 * amountBranches - 4, 2)
             //var score = -1 + Math.pow(1.1, amountBranches)
 
             //if (score > 10) {
@@ -2773,7 +2772,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            var score = Math.pow(-(0.75 * amountCases - 4), 2) + 10
+            var score = 10 - Math.pow(0.75 * amountCases - 4, 2)
             //var score = -1 + Math.pow(1.1, amountCases)
 
             //if (score > 10) {
@@ -2805,7 +2804,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            var score = Math.pow(-(0.75 * amountCases - 4), 2) + 10
+            var score = 10 - Math.pow(0.75 * amountCases - 4, 2)
             //var score = -1 + Math.pow(1.1, amountCases)
 
             //if (score > 10) {
