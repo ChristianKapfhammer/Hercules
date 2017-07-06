@@ -2725,7 +2725,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             }
 
 
-            var score = 11 - Math.pow(1.25, score)
+            var score = 11 - Math.pow(1.25, amountBranches)
             //var score = -1 + Math.pow(1.1, amountBranches)
 
             //if (score > 10) {
@@ -2765,7 +2765,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            var score = 11 - Math.pow(1.15, score)
+            var score = 11 - Math.pow(1.15, amountBranches)
             //var score = -1 + Math.pow(1.1, amountBranches)
 
             //if (score > 10) {
