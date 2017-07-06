@@ -2704,19 +2704,28 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
             if (ifStatementsBlocks.contains(block)) {
                 for (v <- ifStatementsBlocks(block)) {
-                    amountBranches += v
+                    if (v <= 2) {
+                        amountBranches += v/4
+                    } else {
+                        amountBranches += v/2
+                    }
                 }
             }
 
             if (blockCapsuling.contains(block)) {
                 for (subBlock <- blockCapsuling(block).filter(b => ifStatementsBlocks.contains(b))) {
                     for (v <- ifStatementsBlocks(subBlock)) {
-                        amountBranches += 0.5 * v
+                        if (v <= 2) {
+                            amountBranches += 0.5 * v/4
+                        } else {
+                            amountBranches += 0.5 * v/2
+                        }
                     }
                 }
             }
 
-            var score = 10 - Math.pow(0.75 * amountBranches - 4, 2)
+
+            var score = 11 - Math.pow(1.25, score)
             //var score = -1 + Math.pow(1.1, amountBranches)
 
             //if (score > 10) {
@@ -2736,19 +2745,27 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
             if (ifStatementsFunctions.contains(func)) {
                 for (v <- ifStatementsFunctions(func)) {
-                    amountBranches += v
+                    if (v <= 2) {
+                        amountBranches += v/4
+                    } else {
+                        amountBranches += v/2
+                    }
                 }
             }
 
             if (functionBlocks.contains(func)) {
                 for (subBlock <- functionBlocks(func).filter(b => ifStatementsBlocks.contains(b))) {
                     for (v <- ifStatementsBlocks(subBlock)) {
-                        amountBranches += 0.5 * v
+                        if (v <= 2) {
+                            amountBranches += 0.5 * v/4
+                        } else {
+                            amountBranches += 0.5 * v/2
+                        }
                     }
                 }
             }
 
-            var score = 10 - Math.pow(0.75 * amountBranches - 4, 2)
+            var score = 11 - Math.pow(1.15, score)
             //var score = -1 + Math.pow(1.1, amountBranches)
 
             //if (score > 10) {
@@ -2839,8 +2856,6 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             }
 
             if (blockCapsuling.contains(block)) {
-                println(block + " - > " + blockCapsuling(block))
-
                 for (subBlock <- blockCapsuling(block).filter(b => loopsBlocks.contains(b))) {
                     score += 0.5*loopsBlocks(subBlock)
                 }
@@ -3031,30 +3046,36 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         for (block <- blockToExpr.keySet) {
             var sum: Double = 0
 
+            val ifWeight: Double = 0.1
+            val switchWeight: Double = 0.1
+            val loopsWeight: Double = 0.35
+            val callWeight: Double = 0.4
+            val flowWeight: Double = 0.05
+
             if (ifBinBlocks.contains(block)) {
-                sum += ifBinBlocks(block)
+                sum += ifWeight * ifBinBlocks(block)
             }
 
             if (switchBinBlocks.contains(block)) {
-                sum += switchBinBlocks(block)
+                sum += switchWeight * switchBinBlocks(block)
             }
 
             if (loopsBinBlocks.contains(block)) {
-                sum += loopsBinBlocks(block)
+                sum += loopsWeight * loopsBinBlocks(block)
             }
 
             if (flowBinBlocks.contains(block)) {
-                sum += flowBinBlocks(block)
+                sum += flowWeight * flowBinBlocks(block)
             }
 
             if (callBinBlocks.contains(block)) {
-                sum += callBinBlocks(block)
+                sum += callWeight * callBinBlocks(block)
             }
 
             if (binScoreBlocks.contains(block)) {
                 binScoreBlocks -= block
             }
-            binScoreBlocks += (block -> ((sum/50)*10).toInt)
+            binScoreBlocks += (block -> sum.toInt)
         }
     }
 }
