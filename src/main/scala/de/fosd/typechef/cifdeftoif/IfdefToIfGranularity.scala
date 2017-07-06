@@ -669,7 +669,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeMapFile()
         writeOperatorFile()
 
-        readScatterplotPerformance300AllYesFilesOneFile()
         //readScatterplotPerformance300AllYesFilesOneFile()
 
         //readScoreFile()
