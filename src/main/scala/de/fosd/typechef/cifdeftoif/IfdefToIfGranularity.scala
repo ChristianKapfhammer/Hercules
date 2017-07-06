@@ -669,6 +669,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeMapFile()
         writeOperatorFile()
 
+        readScatterplotPerformance300AllYesFilesOneFile()
         //readScatterplotPerformance300AllYesFilesOneFile()
 
         //readScoreFile()
@@ -739,7 +740,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/BinScores-Testing/"
+    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing - neu/"
 
     private def readScatterplotPerformance300AllYesFiles(): Unit = {
         for (i <- 0 to 299) {
@@ -929,22 +930,24 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 sum += value
             }
 
-            sum = sum / v.size
-            val tuple = scoreMap(k)
+            sum = sum / 150
+            if (scoreMap.contains(k)) {
+                val tuple = scoreMap(k)
 
-            var scoreAverage = 0.0
-            val scoreList = readScores(k)
+                var scoreAverage = 0.0
+                val scoreList = readScores(k)
 
-            for (value <- scoreList) {
-                scoreAverage += value
+                for (value <- scoreList) {
+                    scoreAverage += value
+                }
+
+                scoreAverage = scoreAverage / scoreList.size
+
+                // replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
+
+                string = string + k + "," + scoreAverage + "," + sum + "," + tuple._2 + "\n"
+                string2 = string2 + k + "," + scoreAverage + "," + sum + "\n"
             }
-
-            scoreAverage = scoreAverage / scoreList.size
-
-            // replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
-
-            string = string + k + "," + scoreAverage + "," + sum + "," + tuple._2 + "\n"
-            string2 = string2 + k + "," + scoreAverage + "," + sum + "\n"
         }
 
         pw.write(string)
@@ -2064,7 +2067,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     return sum
                 }
 
-                if (recSetValue.contains(call.functionName)) {
+                if (recSetValue.contains(call.functionName) /*&& call.condition.and(cond).isSatisfiable(featureModel)*/) {
                     val recSet = functionRecSetMapping(call.functionName)
 
                     callCauses += "Recursion"
@@ -2086,9 +2089,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         }
                     }
 
-                    call.weight * sum
+                    sum = sum * call.weight
+                    sum
                 } else {
-                    if (call.condition.and(cond).isSatisfiable(featureModel)) {
+                    //if (call.condition.and(cond).isSatisfiable(featureModel)) {
                         var sum: Double = functionScores(call.functionName)
 
                         callCauses += "Function"
@@ -2110,12 +2114,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         }
 
                         call.weight * sum
-                    } else {
-                        0
-                    }
+                    //} else {
+                    //    0
+                    //}
                 }
             } else {
-                if (call.condition.and(cond).isSatisfiable(featureModel)) {
+                //if (call.condition.and(cond).isSatisfiable(featureModel)) {
                     var sum: Double = 0.0
 
                     callCauses += "Function"
@@ -2125,7 +2129,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                             callCauses = callCauses.union(scoreCauses(block))
                         }
                     }
-
 
                     if (currentDepth < FUNCTION_ACCUMULATION_DEPTH) {
                         sum = functionScores(call.functionName)
@@ -2145,9 +2148,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
 
                     call.weight * sum
-                } else {
-                    0
-                }
+                //} else {
+                //    0
+                //}
             }
         }
 
