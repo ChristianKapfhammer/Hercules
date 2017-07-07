@@ -14,6 +14,25 @@ trait IfdefToIfGranularityInterface {
 
     class FuncCall(var functionName: String, var block: String, var condition: FeatureExpr, var weight: Double) {}
 
+    protected var BUCKET_SIZE: Int = 5
+
+    protected var IF_WEIGHT: Double = 1.0
+    protected var SWITCH_WEIGHT: Double = 1.0
+    protected var LOOP_WEIGHT: Double = 1.0
+    protected var FOR_WEIGHT: Double = -1.0
+    protected var WHILE_WEIGHT: Double = -1.0
+    protected var DO_WEIGHT: Double = -1.0
+    protected var CONTROL_FLOW_WEIGHT: Double = 1.0
+    protected var BREAK_WEIGHT: Double = -1.0
+    protected var CONTINUE_WEIGHT: Double = -1.0
+    protected var GOTO_WEIGHT: Double = -1.0
+    protected var RECURSIVE_WEIGHT: Double = 1.0
+    protected var DEFAULT_FUNCTION_WEIGHT = 1.0
+    protected var FUNCTION_CALL_WEIGHT: Double = 1.0
+
+    protected var predefinedFunctionScores: Map[String, Double] = Map.empty[String, Double]
+    protected var functionCallOffsets: Map[String, Double] = Map.empty[String, Double]
+
     // in which function is the call? -> (what function is called?, which condition?, which weight?)
     protected var globalFunctionCalls: Map[String, List[FuncCall]] = Map.empty[String, List[FuncCall]]
     protected var statementMapping: IdentityHashMap[Any, String] = new IdentityHashMap[Any, String]()
@@ -30,6 +49,81 @@ trait IfdefToIfGranularityInterface {
 
     def getStatementMapping(): IdentityHashMap[Any, String] = {
         statementMapping
+    }
+
+    /**
+      * Reads the configuration file for the weights.
+      */
+    protected def readConfigFile(): Unit = {
+        if (Files.exists(Paths.get("./granularity_config.txt"))) {
+            for (c <- Source.fromFile("granularity_config.txt").getLines()) {
+                val configParts = c.split("=")
+
+                if (configParts.size == 2) {
+                    configParts(0) match {
+                        case "if_weight" =>
+                            IF_WEIGHT = configParts(1).toDouble
+                        case "switch_weight" =>
+                            SWITCH_WEIGHT = configParts(1).toDouble
+                        case "loop_weight" =>
+                            LOOP_WEIGHT = configParts(1).toDouble
+                        case "for_weight" =>
+                            FOR_WEIGHT = configParts(1).toDouble
+                        case "while_weight" =>
+                            WHILE_WEIGHT = configParts(1).toDouble
+                        case "do_weight" =>
+                            DO_WEIGHT = configParts(1).toDouble
+                        case "control_flow_weight" =>
+                            CONTROL_FLOW_WEIGHT = configParts(1).toDouble
+                        case "break_weight" =>
+                            BREAK_WEIGHT = configParts(1).toDouble
+                        case "continue_weight" =>
+                            CONTINUE_WEIGHT = configParts(1).toDouble
+                        case "goto_weight" =>
+                            GOTO_WEIGHT = configParts(1).toDouble
+                        case "recursive_weight" =>
+                            RECURSIVE_WEIGHT = configParts(1).toDouble
+                        case "default_function_value" =>
+                            DEFAULT_FUNCTION_WEIGHT = configParts(1).toDouble
+                        case "function_call_weight" =>
+                            FUNCTION_CALL_WEIGHT = configParts(1).toDouble
+                        case "bucket_size" =>
+                            BUCKET_SIZE = configParts(1).toInt
+                        case _ =>
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+      * Reads the configuration file for the predefined function scores.
+      */
+    protected def readFunctionConfigFile(): Unit = {
+        if (Files.exists(Paths.get("./predefined_function_scores.txt"))) {
+            for (c <- Source.fromFile("predefined_function_scores.txt").getLines()) {
+                val configParts = c.split(" ")
+
+                if (configParts.size == 2 && !predefinedFunctionScores.contains(configParts(0))) {
+                    predefinedFunctionScores += (configParts(0) -> configParts(1).toDouble)
+                }
+            }
+        }
+    }
+
+    /**
+      * Reads the configuration file for the function offsets.
+      */
+    protected def readFunctionOffsetFile(): Unit = {
+        if (Files.exists(Paths.get("./function_offsets.txt"))) {
+            for (c <- Source.fromFile("function_offsets.txt").getLines()) {
+                val configParts = c.split(" ")
+
+                if (configParts.size == 2 && !functionCallOffsets.contains(configParts(0))) {
+                    functionCallOffsets += (configParts(0) -> configParts(1).toDouble)
+                }
+            }
+        }
     }
 
     // Global for block mapping calculation
@@ -585,21 +679,6 @@ trait IfdefToIfGranularityInterface {
 
 trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IOUtilities {
 
-    private var BUCKET_SIZE: Int = 5
-    private var DEFAULT_FUNCTION_WEIGHT = 1.0
-
-    private var FOR_WEIGHT: Double = 1.0
-    private var WHILE_WEIGHT: Double = 1.0
-    private var DO_WEIGHT: Double = 1.0
-    private var BREAK_WEIGHT: Double = 1.0
-    private var CONTINUE_WEIGHT: Double = 1.0
-    private var GOTO_WEIGHT: Double = 1.0
-    private var RECURSIVE_WEIGHT: Double = 1.0
-    private var FUNCTION_CALL_WEIGHT: Double = 1.0
-
-    private var predefinedFunctionScores: Map[String, Double] = Map.empty[String, Double]
-    private var functionCallOffsets: Map[String, Double] = Map.empty[String, Double]
-
     private var loopCounter: Int = 0
     private var loopScores: Map[Int, Double] = Map.empty[Int, Double]
     private var functionModifiers: Map[String, Double] = Map.empty[String, Double]
@@ -736,7 +815,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing - neu/"
+    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/BinScores-Testing/"
 
     private def readScatterplotPerformance300AllYesFiles(): Unit = {
         for (i <- 0 to 299) {
@@ -1063,14 +1142,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     }
 
     private def calculateAverageForPerfFilter(): Unit = {
-        // TODO
         val pw = new PrintWriter(new File(path + "data.csv"))
         var string = "Block,Score,Performance,Causes\n"
-        val pw2 = new PrintWriter(new File(path + "pearson_data.csv"))
-        var string2 = "Score,Performance\n"
 
         var scatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
-        var readScores: Map[String, List[Double]] = Map.empty[String, List[Double]]
 
         for (i <- 0 to 299) {
             println("Starting Scatterplot " + i)
@@ -1082,19 +1157,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 val cond = lineParts(1) + "_" + lineParts(0)
                 val value = lineParts(2).toDouble
-                val causes = lineParts(3).replace(";", "|").replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
-
-                scoreMap += (cond -> (value, causes))
-
-                if (readScores.contains(cond)) {
-                    var list = readScores(cond)
-                    list ::= value
-
-                    readScores -= cond
-                    readScores += (cond -> list)
-                } else {
-                    readScores += (cond -> List(value))
-                }
+                scoreMap += (cond -> (value, ""))
             }
 
             var map: Map[String, List[Double]] = Map.empty[String, List[Double]]
@@ -1154,27 +1217,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
 
             sum = sum / v.size
-            val tuple = scoreMap(k)
 
-            var scoreAverage = 0.0
-            val scoreList = readScores(k)
-
-            for (value <- scoreList) {
-                scoreAverage += value
-            }
-
-            scoreAverage = scoreAverage / scoreList.size
-
-            // replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
-
-            string = string + k + "," + scoreAverage + "," + sum + "," + tuple._2 + "\n"
-            string2 = string2 + k + "," + scoreAverage + "," + sum + "\n"
+            string = string + k + "," + sum + "," + "\n"
         }
 
         pw.write(string)
         pw.close()
-        pw2.write(string2)
-        pw2.close()
     }
 
     def getListOfFiles(dir: String):List[File] = {
@@ -1430,72 +1478,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         pw.write(string)
         pw.close()
     }*/
-    /**
-      * Reads the configuration file for the weights.
-      */
-    private def readConfigFile(): Unit = {
-        if (Files.exists(Paths.get("./granularity_config.txt"))) {
-            for (c <- Source.fromFile("granularity_config.txt").getLines()) {
-                val configParts = c.split("=")
-
-                if (configParts.size == 2) {
-                    configParts(0) match {
-                        case "for_weight" =>
-                            FOR_WEIGHT = configParts(1).toDouble
-                        case "while_weight" =>
-                            WHILE_WEIGHT = configParts(1).toDouble
-                        case "do_weight" =>
-                            DO_WEIGHT = configParts(1).toDouble
-                        case "break_weight" =>
-                            BREAK_WEIGHT = configParts(1).toDouble
-                        case "continue_weight" =>
-                            CONTINUE_WEIGHT = configParts(1).toDouble
-                        case "goto_weight" =>
-                            GOTO_WEIGHT = configParts(1).toDouble
-                        case "recursive_weight" =>
-                            RECURSIVE_WEIGHT = configParts(1).toDouble
-                        case "default_function_value" =>
-                            DEFAULT_FUNCTION_WEIGHT = configParts(1).toDouble
-                        case "function_call_weight" =>
-                            FUNCTION_CALL_WEIGHT = configParts(1).toDouble
-                        case "bucket_size" =>
-                            BUCKET_SIZE = configParts(1).toInt
-                        case _ =>
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-      * Reads the configuration file for the predefined function scores.
-      */
-    private def readFunctionConfigFile(): Unit = {
-        if (Files.exists(Paths.get("./predefined_function_scores.txt"))) {
-            for (c <- Source.fromFile("predefined_function_scores.txt").getLines()) {
-                val configParts = c.split(" ")
-
-                if (configParts.size == 2 && !predefinedFunctionScores.contains(configParts(0))) {
-                    predefinedFunctionScores += (configParts(0) -> configParts(1).toDouble)
-                }
-            }
-        }
-    }
-
-    /**
-      * Reads the configuration file for the function offsets.
-      */
-    private def readFunctionOffsetFile(): Unit = {
-        if (Files.exists(Paths.get("./function_offsets.txt"))) {
-            for (c <- Source.fromFile("function_offsets.txt").getLines()) {
-                val configParts = c.split(" ")
-
-                if (configParts.size == 2 && !functionCallOffsets.contains(configParts(0))) {
-                    functionCallOffsets += (configParts(0) -> configParts(1).toDouble)
-                }
-            }
-        }
-    }
 
     private def writeDataFile(): Unit = {
         val pw = new PrintWriter(new File(dir + "data.csv"))
@@ -1614,7 +1596,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var loopExited: Map[Int, Boolean] = Map.empty[Int, Boolean]
 
     /**
-      * Calculates the modificators for the loops and functions. Breaks, continues and gotos within loops only influence
+      * Calculates the modifiers for the loops and functions. Breaks, continues and gotos within loops only influence
       * the modifier of the loops. If a goto is not inside a loop, it affects the modifier of the current function.
       */
     private def calculateLoopScores(obj: Any, currentLoopSet: Set[Int] = Set.empty[Int],
@@ -1622,7 +1604,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         obj match {
             case x: ForStatement =>
                 val counter: Int = loopCounter
-                loopScores += (loopCounter -> FOR_WEIGHT)
+
+                if (FOR_WEIGHT < 0) {
+                    loopScores += (loopCounter -> LOOP_WEIGHT)
+                } else {
+                    loopScores += (loopCounter -> FOR_WEIGHT)
+                }
+
                 loopExited += (loopCounter -> false)
 
                 loopCounter += 1
@@ -1636,7 +1624,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             case x: WhileStatement =>
                 val counter: Int = loopCounter
-                loopScores += (loopCounter -> WHILE_WEIGHT)
+
+                if (WHILE_WEIGHT < 0) {
+                    loopScores += (loopCounter -> LOOP_WEIGHT)
+                } else {
+                    loopScores += (loopCounter -> WHILE_WEIGHT)
+                }
+
                 loopExited += (loopCounter -> false)
 
                 loopCounter += 1
@@ -1650,7 +1644,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             case x: DoStatement =>
                 val counter: Int = loopCounter
-                loopScores += (loopCounter -> DO_WEIGHT)
+
+                if (DO_WEIGHT < 0) {
+                    loopScores += (loopCounter -> LOOP_WEIGHT)
+                } else {
+                    loopScores += (loopCounter -> DO_WEIGHT)
+                }
+
                 loopExited += (loopCounter -> false)
 
                 loopCounter += 1
@@ -1664,21 +1664,44 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
             case x: BreakStatement =>
                 if (currentLoop != null.asInstanceOf[Int]) {
-                    val score = loopScores(currentLoop) * BREAK_WEIGHT
+                    var score = loopScores(currentLoop)
+
+                    if (BREAK_WEIGHT < 0) {
+                        score = score * CONTROL_FLOW_WEIGHT
+                    } else {
+                        score = score * BREAK_WEIGHT
+                    }
+
                     loopScores -= currentLoop
                     loopExited -= currentLoop
                     loopScores += (currentLoop -> score)
                     loopExited += (currentLoop -> true)
                 }
             case x: ContinueStatement =>
-                val score = loopScores(currentLoop) * CONTINUE_WEIGHT
-                loopScores -= currentLoop
-                loopExited -= currentLoop
-                loopScores += (currentLoop -> score)
-                loopExited += (currentLoop -> true)
+                if (currentLoop != null.asInstanceOf[Int]) {
+                    var score = loopScores(currentLoop)
+
+                    if (CONTINUE_WEIGHT < 0) {
+                        score = score * CONTROL_FLOW_WEIGHT
+                    } else {
+                        score = score * CONTINUE_WEIGHT
+                    }
+
+                    loopScores -= currentLoop
+                    loopExited -= currentLoop
+                    loopScores += (currentLoop -> score)
+                    loopExited += (currentLoop -> true)
+                }
             case x: GotoStatement =>
                 for (y <- currentLoopSet) {
-                    val score = loopScores(y) * GOTO_WEIGHT
+                    var score = loopScores(currentLoop)
+
+                    if (GOTO_WEIGHT < 0) {
+                        score = score * CONTROL_FLOW_WEIGHT
+                    } else {
+                        score = score * GOTO_WEIGHT
+                    }
+
                     loopScores -= y
                     loopExited -= y
                     loopScores += (y -> score)
@@ -1687,14 +1710,14 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 // If there is currently no loop, add the modifier to the current function
                 if (currentLoopSet.isEmpty && currentFunction != null) {
-                    if (functionModifiers.contains(currentFunction)) {
-                        val value = functionModifiers(currentFunction)
+                    var value = 1.0
 
+                    if (functionModifiers.contains(currentFunction)) {
+                        value = functionModifiers(currentFunction)
                         functionModifiers -= currentFunction
-                        functionModifiers += (currentFunction -> (value*GOTO_WEIGHT))
-                    } else {
-                        functionModifiers += (currentFunction -> GOTO_WEIGHT)
                     }
+
+                    functionModifiers += (currentFunction -> value*GOTO_WEIGHT)
                 }
             case funcDef: FunctionDef =>
                 if (funcDef.productArity > 0) {
@@ -2236,6 +2259,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
         dir = outputDir
 
+        readConfigFile()
         println(" - Calculating block mapping")
         calculateBlockMapping(ast)
         println(" - Analyzing the code")
@@ -3015,39 +3039,37 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     }
 
     private def calculateEachBlockBin(): Unit = {
+        val maxValue = 10*(IF_WEIGHT + SWITCH_WEIGHT + LOOP_WEIGHT + CONTROL_FLOW_WEIGHT + FUNCTION_CALL_WEIGHT)
+
         for (block <- blockToExpr.keySet) {
             var sum: Double = 0
 
-            val ifWeight: Double = 0.1
-            val switchWeight: Double = 0.1
-            val loopsWeight: Double = 0.35
-            val callWeight: Double = 0.4
-            val flowWeight: Double = 0.05
-
             if (ifBinBlocks.contains(block)) {
-                sum += ifWeight * ifBinBlocks(block)
+                sum += IF_WEIGHT * ifBinBlocks(block)
             }
 
             if (switchBinBlocks.contains(block)) {
-                sum += switchWeight * switchBinBlocks(block)
+                sum += SWITCH_WEIGHT * switchBinBlocks(block)
             }
 
             if (loopsBinBlocks.contains(block)) {
-                sum += loopsWeight * loopsBinBlocks(block)
+                sum += LOOP_WEIGHT * loopsBinBlocks(block)
             }
 
             if (flowBinBlocks.contains(block)) {
-                sum += flowWeight * flowBinBlocks(block)
+                sum += CONTROL_FLOW_WEIGHT * flowBinBlocks(block)
             }
 
             if (callBinBlocks.contains(block)) {
-                sum += callWeight * callBinBlocks(block)
+                sum += FUNCTION_CALL_WEIGHT * callBinBlocks(block)
             }
 
             if (binScoreBlocks.contains(block)) {
                 binScoreBlocks -= block
             }
-            binScoreBlocks += (block -> sum.toInt)
+
+            // Calculate the final bin score depending on the factors
+            binScoreBlocks += (block -> ((sum/maxValue)*10).toInt)
         }
     }
 }
