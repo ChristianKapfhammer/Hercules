@@ -1695,7 +1695,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 // If there is currently no loop, add the modifier to the current function
                 if (currentLoopSet.isEmpty && currentFunction != null) {
                     if (functionModifiers.contains(currentFunction)) {
-                        var value = functionModifiers(currentFunction)
+                        val value = functionModifiers(currentFunction)
 
                         functionModifiers -= currentFunction
                         functionModifiers += (currentFunction -> (value*GOTO_WEIGHT))
@@ -1878,12 +1878,17 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                 adjustedWeight = weight/(i.elifs.size + 2)
                             case SwitchStatement(_, One(CompoundStatement(list))) =>
                                 var amountCases = 0
+                                var insideCase: Boolean = false
 
                                 // Count amount of case statements and default statement
                                 for (elem <- list) {
                                     elem.entry match {
                                         case _: CaseStatement | _: DefaultStatement =>
-                                            amountCases += 1
+                                            if (!insideCase) {
+                                                amountCases += 1
+                                            }
+                                        case _: BreakStatement =>
+                                            insideCase = false
                                         case _ =>
                                     }
                                 }
@@ -2391,11 +2396,17 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             case SwitchStatement(expr: Expr, One(CompoundStatement(list))) =>
                 var block = currentBlock
                 var amountCases = 0
+                var insideCase: Boolean = false
 
+                // Count amount of case statements and default statement
                 for (elem <- list) {
                     elem.entry match {
                         case _: CaseStatement | _: DefaultStatement =>
-                            amountCases += 1
+                            if (!insideCase) {
+                                amountCases += 1
+                            }
+                        case _: BreakStatement =>
+                            insideCase = false
                         case _ =>
                     }
                 }
