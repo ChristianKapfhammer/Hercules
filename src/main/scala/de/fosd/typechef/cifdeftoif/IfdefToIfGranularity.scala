@@ -2731,8 +2731,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             //    score = 10.0
             //}
 
-            if (score < 0) {
-                score = 0
+            if (score < 1) {
+                score = 1.0
             }
 
             ifBinBlocks += (block -> Math.round(score).toInt)
@@ -2771,8 +2771,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             //    score = 10.0
             //}
 
-            if (score < 0) {
-                score = 0
+            if (score < 1) {
+                score = 1.0
             }
 
             ifBinFunctions += (func -> Math.round(score).toInt)
@@ -2805,8 +2805,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             //    score = 10.0
             //}
 
-            if (score < 0) {
-                score = 0
+            if (score < 1) {
+                score = 1.0
             }
 
             switchBinBlocks += (block -> Math.round(score).toInt)
@@ -2837,8 +2837,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             //    score = 10.0
             //}
 
-            if (score < 0) {
-                score = 0
+            if (score < 1) {
+                score = 1.0
             }
 
             switchBinFunctions += (func -> Math.round(score).toInt)
@@ -2910,8 +2910,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
             score = 11 - Math.pow(1.15, score)
 
-            if (score < 0) {
-                score = 0.0
+            if (score < 1) {
+                score = 1.0
             }
 
             flowBinBlocks += (block -> Math.round(score).toInt)
@@ -2933,8 +2933,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
             score = 11 - Math.pow(1.15, score)
 
-            if (score < 0) {
-                score = 0.0
+            if (score < 1) {
+                score = 1.0
             }
 
             flowIrregulationsFunctions += (func -> Math.round(score).toInt)
@@ -2981,6 +2981,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
             if (callScore > 10) {
                 callScore = 10
+            } else if (callScore < 1) {
+                callScore = 1
             }
 
             if (binScoreFunctions.contains(func)) {
@@ -3035,6 +3037,8 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
             if (score > 10) {
                 score = 10.0
+            } else if (score < 1) {
+                score = 1.0
             }
 
             callBinBlocks += (block -> Math.round(score).toInt)
