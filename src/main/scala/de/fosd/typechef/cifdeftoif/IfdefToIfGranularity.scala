@@ -2073,6 +2073,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
         }
 
+        for (entry <- recSetValue) {
+            println(entry._1 + " -> " + entry._2)
+        }
 
         // Calculate the accumulated costs of a function call
         def getCallValue(call: FuncCall, cond: FeatureExpr, currentDepth: Int): Double = {
