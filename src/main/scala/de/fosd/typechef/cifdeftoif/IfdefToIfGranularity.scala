@@ -756,6 +756,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         ignoredStatements
     }
 
+    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing - neu/"
     var scoreMap: Map[String, (Double, String)] = Map.empty[String, (Double, String)]
     var performanceScatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
     var performanceECDFMap: Map[String, Double] = Map.empty[String, Double]
@@ -814,8 +815,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             performanceScatterMap += (k -> performanceList)
         }
     }
-
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing - neu/"
 
     private def readScatterplotPerformance300AllYesFiles(): Unit = {
         for (i <- 0 to 299) {
@@ -1997,7 +1996,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
     /**
       * Calculates the general function scores. The score of each block is added to the function score in which the
-      * blokc is located.
+      * block is located.
       */
     private def calculateFunctionScores(): Unit = {
         for (func <- functionDefs) {
@@ -2049,6 +2048,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         var recSetValue: Map[String, Double] = Map.empty[String, Double]
 
         val functionRecSets = calculateRecursiveSets()
+
+        for (set <- functionRecSets) {
+            println(set)
+        }
 
         println("     -- Calculating recursion values")
         // Calculate the score of each recursion set
@@ -2106,8 +2109,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
-                sum = sum * call.weight
-                sum
+                call.weight * sum
             } else {
                 //if (call.condition.and(cond).isSatisfiable(featureModel)) {
                 var sum: Double = functionScores(call.functionName)
@@ -2130,8 +2132,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
-                sum = sum * call.weight
-                sum
+                call.weight * sum
                 //} else {
                 //    0
                 //}
