@@ -2054,10 +2054,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         val functionRecSets = calculateRecursiveSets()
 
-        for (set <- functionRecSets) {
-            println(set)
-        }
-
         println("     -- Calculating recursion values")
         // Calculate the score of each recursion set
         for (recSet <- functionRecSets) {
@@ -2071,10 +2067,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 functionRecSetMapping += (func -> recSet)
                 recSetValue += (func -> sum)
             }
-        }
-
-        for (entry <- recSetValue) {
-            println(entry._1 + " -> " + entry._2)
         }
 
         // Calculate the accumulated costs of a function call
@@ -2096,6 +2088,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
 
             if (recSetValue.contains(call.functionName) /*&& call.condition.and(cond).isSatisfiable(featureModel)*/ ) {
+                if (call.functionName == "sqlite3FkCheck") {
+                    println("ENTERED RECURSION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    for (entry <- recSetValue) {
+                        println(entry._1 + " -> " + entry._2)
+                    }
+                }
+
                 val recSet = functionRecSetMapping(call.functionName)
 
                 callCauses += "Recursion"
@@ -2119,6 +2118,13 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 call.weight * sum
             } else {
+                if (call.functionName == "sqlite3FkCheck") {
+                    println("ENTERED FUNCTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    for (entry <- recSetValue) {
+                        println(entry._1 + " -> " + entry._2)
+                    }
+                }
+
                 //if (call.condition.and(cond).isSatisfiable(featureModel)) {
                 var sum: Double = functionScores(call.functionName)
 
