@@ -344,6 +344,12 @@ trait IfdefToIfGranularityInterface {
                         case o =>
                             calculateBlockMapping(x.entry, currentBlock, currentFunction)
                     }
+                } else {
+                    x.entry match {
+                        case funcDef: FunctionDef =>
+                            calculateBlockMapping(x.entry, currentBlock.&(x.condition), null)
+                        case o =>
+                    }
                 }
             case One(x) =>
                 calculateBlockMapping(x, currentBlock, currentFunction)
@@ -2109,12 +2115,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
-                if (call.functionName == "sqlite3FkCheck") {
-                    println("ENTERED RECURSION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                    println("Weight: " + call.weight)
-                    println("Sum: " + sum)
-                }
-
                 call.weight * sum
             } else {
                 //if (call.condition.and(cond).isSatisfiable(featureModel)) {
@@ -2136,12 +2136,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     for (furtherCall <- globalFunctionCalls(call.functionName)) {
                         sum += getCallValue(furtherCall, cond.and(call.condition), currentDepth)
                     }
-                }
-
-                if (call.functionName == "sqlite3FkCheck") {
-                    println("ENTERED FUNCTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                    println("Weight: " + call.weight)
-                    println("Sum: " + sum)
                 }
 
                 call.weight * sum
