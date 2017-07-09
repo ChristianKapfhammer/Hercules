@@ -197,7 +197,7 @@ trait IfdefToIfGranularityInterface {
                                         case _ =>
                                     }
 
-                                    var setOfVariables = getUsedVariablesFromTree(i.condition)
+                                    val setOfVariables = getUsedVariablesFromTree(i.condition)
 
                                     for (v <- setOfVariables) {
                                         if (conditionalVariables.contains(v)) {
@@ -220,7 +220,7 @@ trait IfdefToIfGranularityInterface {
                                         case _ =>
                                     }
 
-                                    var setOfVariables = getUsedVariablesFromTree(e.condition)
+                                    val setOfVariables = getUsedVariablesFromTree(e.condition)
 
                                     for (v <- setOfVariables) {
                                         if (conditionalVariables.contains(v)) {
@@ -243,7 +243,7 @@ trait IfdefToIfGranularityInterface {
                                         case _ =>
                                     }
 
-                                    var setOfVariables = getUsedVariablesFromTree(w.expr)
+                                    val setOfVariables = getUsedVariablesFromTree(w.expr)
 
                                     for (v <- setOfVariables) {
                                         if (conditionalVariables.contains(v)) {
@@ -266,7 +266,7 @@ trait IfdefToIfGranularityInterface {
                                         case _ =>
                                     }
 
-                                    var setOfVariables = getUsedVariablesFromTree(d.expr)
+                                    val setOfVariables = getUsedVariablesFromTree(d.expr)
 
                                     for (v <- setOfVariables) {
                                         if (conditionalVariables.contains(v)) {
@@ -274,15 +274,29 @@ trait IfdefToIfGranularityInterface {
                                         }
                                     }
                                 case s: SwitchStatement =>
-                                    var setOfVariables = getUsedVariablesFromTree(s.expr)
+                                    val setOfVariables = getUsedVariablesFromTree(s.expr)
 
                                     for (v <- setOfVariables) {
                                         if (conditionalVariables.contains(v)) {
                                             cond = cond.&(conditionalVariables(v))
                                         }
                                     }
-                                case x => // All other statements
-                                    var setOfVariables = getUsedVariablesFromTree(x)
+                                case r: ReturnStatement =>
+                                    val condSet = getAllConditionsFromTree(r.expr)
+
+                                    if (condSet.nonEmpty) {
+                                        cond = cond.&(condSet.head)
+                                    }
+
+                                    val setOfVariables = getUsedVariablesFromTree(r.expr)
+
+                                    for (v <- setOfVariables) {
+                                        if (conditionalVariables.contains(v)) {
+                                            cond = cond.&(conditionalVariables(v))
+                                        }
+                                    }
+                                case _ => // All other statements
+                                    val setOfVariables = getUsedVariablesFromTree(x.entry)
 
                                     for (v <- setOfVariables) {
                                         if (conditionalVariables.contains(v)) {
