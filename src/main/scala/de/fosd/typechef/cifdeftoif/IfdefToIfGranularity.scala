@@ -295,6 +295,31 @@ trait IfdefToIfGranularityInterface {
                                             cond = cond.&(conditionalVariables(v))
                                         }
                                     }
+                                case s: Statement =>
+                                    // Check if statement contains further statements
+                                    var containsStatements = false
+
+                                    if (s.productArity > 0) {
+                                        for (y <- s.productIterator.toList if !containsStatements) {
+                                            containsStatements = containsStatements & checkIfContainsStatements(y)
+                                        }
+                                    }
+
+                                    if (!containsStatements) {
+                                        val condSet = getAllConditionsFromTree(s)
+
+                                        if (condSet.nonEmpty) {
+                                            cond = cond.&(condSet.head)
+                                        }
+
+                                        val setOfVariables = getUsedVariablesFromTree(s)
+
+                                        for (v <- setOfVariables) {
+                                            if (conditionalVariables.contains(v)) {
+                                                cond = cond.&(conditionalVariables(v))
+                                            }
+                                        }
+                                    }
                                 case _ => // All other statements
                                     val setOfVariables = getUsedVariablesFromTree(x.entry)
 
@@ -379,6 +404,40 @@ trait IfdefToIfGranularityInterface {
             case None =>
             case o =>
         }
+    }
+
+    private def checkIfContainsStatements(obj: Any): Boolean = {
+        var check = false
+
+        obj match {
+            case s: Statement =>
+                check = true
+            case x: AST =>
+                if (x.productArity > 0) {
+                    for (y <- x.productIterator.toList if !check) {
+                        check = check && checkIfContainsStatements(y)
+                    }
+                }
+            case x: Opt[_] =>
+                check = check & checkIfContainsStatements(x.entry)
+            case One(x) =>
+                check = check & checkIfContainsStatements(x)
+            case x: Choice[_] =>
+                check = check & checkIfContainsStatements(x.thenBranch)
+                if (!check) {
+                    check = check & checkIfContainsStatements(x.elseBranch)
+                }
+            case x: List[_] =>
+                for (elem <- x if !check) {
+                    check = check & checkIfContainsStatements(elem)
+                }
+            case Some(x) =>
+                check = check & checkIfContainsStatements(x)
+            case None =>
+            case o =>
+        }
+
+        check
     }
 
     private def getAllConditionsFromTree(obj: Any): Set[FeatureExpr] = {
