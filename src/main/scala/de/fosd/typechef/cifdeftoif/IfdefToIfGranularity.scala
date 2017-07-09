@@ -136,20 +136,20 @@ trait IfdefToIfGranularityInterface {
       */
     protected def calculateBlockMapping(obj: Any, currentBlock: FeatureExpr = FeatureExprFactory.True, currentFunction: String = null): Unit = {
         obj match {
-//            case x: InitDeclarator =>
-//                // Only look at declarations which take place outside functions
-//                if (currentFunction == null) {
-//                    val setOfConditions: Set[FeatureExpr] = getAllConditionsFromTree(x)
-//                    var cond = FeatureExprFactory.True
-//
-//                    for (c <- setOfConditions) {
-//                        cond = cond.&(c)
-//                    }
-//
-//                    if (cond != FeatureExprFactory.True) {
-//                        conditionalVariables += (x.getName -> conditionalVariablesExpr)
-//                    }
-//                }
+            case x: InitDeclarator =>
+                // Only look at declarations which take place outside functions
+                if (currentFunction == null) {
+                    val setOfConditions: Set[FeatureExpr] = getAllConditionsFromTree(x)
+                    var cond = FeatureExprFactory.True
+
+                    for (c <- setOfConditions) {
+                        cond = cond.&(c)
+                    }
+
+                    if (cond != FeatureExprFactory.True) {
+                        conditionalVariables += (x.getName -> conditionalVariablesExpr)
+                    }
+                }
             case x: AST =>
 
                 var function = currentFunction
@@ -746,7 +746,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeOperatorFile()
 
         //readScatterplotPerformance300AllYesFilesOneFile()
-
+        //calculateScatterplotForBinScore()
         //readScoreFile()
         //readAndWriteEDFPerformanceAllFiles()
         //writeScatterplotFile()
@@ -815,7 +815,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/BinScores-Testing/"
+    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing - neu/"
 
     private def readScatterplotPerformance300AllYesFiles(): Unit = {
         for (i <- 0 to 299) {
@@ -1119,8 +1119,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 sum += value
             }
 
-            sum = sum / v.size
-            val tuple = scoreMap(k)
+            sum = sum / 150
 
             var scoreAverage = 0.0
             val scoreList = readScores(k)
