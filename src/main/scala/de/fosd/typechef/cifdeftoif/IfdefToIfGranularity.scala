@@ -334,6 +334,11 @@ trait IfdefToIfGranularityInterface {
                                 case c: Choice[_] =>
                                     cond = cond.&(c.condition)
                                 case _ =>
+                                    val set = getAllConditionsFromTree(e.condition)
+
+                                    if (set.nonEmpty) {
+                                        cond = cond.&(set.head)
+                                    }
                             }
                             calculateBlockMapping(x.entry, cond, currentFunction)
                         case o =>
@@ -391,7 +396,7 @@ trait IfdefToIfGranularityInterface {
             case o =>
         }
 
-        set
+        set.filter(e => e != FeatureExprFactory.True)
     }
 
     private def getUsedVariablesFromTree(obj: Any): Set[String] = {
