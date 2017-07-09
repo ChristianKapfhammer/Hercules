@@ -2088,13 +2088,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
 
             if (recSetValue.contains(call.functionName) /*&& call.condition.and(cond).isSatisfiable(featureModel)*/ ) {
-                if (call.functionName == "sqlite3FkCheck") {
-                    println("ENTERED RECURSION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                    for (entry <- recSetValue) {
-                        println(entry._1 + " -> " + entry._2)
-                    }
-                }
-
                 val recSet = functionRecSetMapping(call.functionName)
 
                 callCauses += "Recursion"
@@ -2116,15 +2109,14 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     }
                 }
 
-                call.weight * sum
-            } else {
                 if (call.functionName == "sqlite3FkCheck") {
-                    println("ENTERED FUNCTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                    for (entry <- recSetValue) {
-                        println(entry._1 + " -> " + entry._2)
-                    }
+                    println("ENTERED RECURSION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    println("Weight: " + call.weight)
+                    println("Sum: " + sum)
                 }
 
+                call.weight * sum
+            } else {
                 //if (call.condition.and(cond).isSatisfiable(featureModel)) {
                 var sum: Double = functionScores(call.functionName)
 
@@ -2144,6 +2136,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     for (furtherCall <- globalFunctionCalls(call.functionName)) {
                         sum += getCallValue(furtherCall, cond.and(call.condition), currentDepth)
                     }
+                }
+
+                if (call.functionName == "sqlite3FkCheck") {
+                    println("ENTERED FUNCTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    println("Weight: " + call.weight)
+                    println("Sum: " + sum)
                 }
 
                 call.weight * sum
