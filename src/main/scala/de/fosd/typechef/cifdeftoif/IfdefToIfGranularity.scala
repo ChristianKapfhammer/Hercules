@@ -604,32 +604,32 @@ trait IfdefToIfGranularityInterface {
       * Calculates the recursion set in which the specified function is contained. The specified function call is
       * the start call.
       */
-    private def getRecSet(call: FuncCall): Option[Set[String]] = {
+    private def getRecSet(initFunction: String): Option[Set[String]] = {
         var visitedFunctions: Map[String, Boolean] = Map.empty[String, Boolean]
-        var nextFunctionCalls: Set[FuncCall] = Set.empty[FuncCall]
+        var nextFunctions: Set[String] = Set.empty[String]
 
-        nextFunctionCalls += call
+        nextFunctions += initFunction
 
-        while (nextFunctionCalls.nonEmpty) {
-            var functionCalls: Set[FuncCall] = Set.empty[FuncCall]
+        while (nextFunctions.nonEmpty) {
+            var functionCalls: Set[String] = Set.empty[String]
 
-            for (func <- nextFunctionCalls) {
-                if (globalFunctionCalls.contains(func.functionName)
-                    && (!visitedFunctions.contains(func.functionName) || !visitedFunctions(func.functionName))) {
-                    for (call <- globalFunctionCalls(func.functionName)) {
-                        functionCalls += call
+            for (func <- nextFunctions) {
+                if (globalFunctionCalls.contains(func)
+                    && (!visitedFunctions.contains(func) || !visitedFunctions(func))) {
+                    for (call <- globalFunctionCalls(func)) {
+                        functionCalls += call.functionName
                     }
                 }
 
-                if (!visitedFunctions.contains(func.functionName)) {
-                    visitedFunctions += (func.functionName -> false)
-                } else if (!visitedFunctions(func.functionName)) {
-                    visitedFunctions -= func.functionName
-                    visitedFunctions += (func.functionName -> true)
+                if (!visitedFunctions.contains(func)) {
+                    visitedFunctions += (func -> false)
+                } else if (!visitedFunctions(func)) {
+                    visitedFunctions -= func
+                    visitedFunctions += (func -> true)
                 }
             }
 
-            nextFunctionCalls = functionCalls
+            nextFunctions = functionCalls
         }
 
         var recSet = visitedFunctions.filter(p => p._2).keySet
@@ -657,11 +657,11 @@ trait IfdefToIfGranularityInterface {
             }
         }
 
-        if (recSet.contains(call.functionName)) {
+        if (recSet.contains(initFunction)) {
             // Get the one recursion that contains the call parameter
 
             var functionSet: Set[String] = Set.empty[String]
-            var nextFunctions: Set[String] = Set(call.functionName)
+            var nextFunctions: Set[String] = Set(initFunction)
 
             while(nextFunctions.nonEmpty) {
                 var set: Set[String] = Set.empty[String]
@@ -714,9 +714,19 @@ trait IfdefToIfGranularityInterface {
         var i = 1
         var visitedFunctions: Set[String] = Set.empty[String]
 
-        for ((funcLocation, funcCalls) <- globalFunctionCalls) {
+        for (func <- globalFunctionCalls.keySet) {
             println("         --- Attempting to calculate recursion: Evaluating calls of function  " + i.toString + " of " +  globalFunctionCalls.size)
-            for (call <- funcCalls) {
+
+            if (functionRecSets.forall(set => !set.contains(func))) {
+                getRecSet(func) match {
+                    case Some(x) =>
+                        functionRecSets += x
+                    case None =>
+                }
+
+            }
+
+            /*for (call <- funcCalls) {
                 if (!visitedFunctions.contains(call.functionName) && functionRecSets.forall(set => !set.contains(call.functionName))) {
                     visitedFunctions += call.functionName
 
@@ -726,7 +736,8 @@ trait IfdefToIfGranularityInterface {
                         case None =>
                     }
                 }
-            }
+            }*/
+
             i += 1
         }
 
@@ -747,6 +758,10 @@ trait IfdefToIfGranularityInterface {
             }
 
             functionRecSets = recSets
+        }
+
+        for (set <- functionRecSets) {
+            println(set)
         }
 
         functionRecSets
