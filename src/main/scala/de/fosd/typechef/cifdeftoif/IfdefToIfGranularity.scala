@@ -1104,6 +1104,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
 
             sum = sum / 150
+
             if (scoreMap.contains(k)) {
                 val tuple = scoreMap(k)
 
@@ -1115,6 +1116,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
 
                 scoreAverage = scoreAverage / scoreList.size
+
+                if (scoreAverage < 0.0000000001) {
+                    scoreAverage = 0
+                }
 
                 // replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
 
@@ -2004,6 +2009,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                             insideCase = false
                                         case _ =>
                                     }
+                                }
+
+                                if (amountCases > 15) {
+                                    amountCases = 15
                                 }
 
                                 if (amountCases != 0)
