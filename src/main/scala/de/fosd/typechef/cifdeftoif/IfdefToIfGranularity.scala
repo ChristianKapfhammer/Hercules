@@ -855,7 +855,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         ignoredStatements
     }
 
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing - neu/"
+    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/BinScores-Testing/"
     var scoreMap: Map[String, (Double, String)] = Map.empty[String, (Double, String)]
     var performanceScatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
     var performanceECDFMap: Map[String, Double] = Map.empty[String, Double]
@@ -2860,7 +2860,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            var score = 11 - Math.pow(1.15, amountBranches)
+            var score = 11 - Math.pow(1.25, amountBranches)
             //var score = -1 + Math.pow(1.1, amountBranches)
 
             //if (score > 10) {
@@ -2894,7 +2894,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            var score = 10 - Math.pow(0.75 * amountCases - 4, 2)
+            var score = 11 - Math.pow(1.25, amountCases)
             //var score = -1 + Math.pow(1.1, amountCases)
 
             //if (score > 10) {
@@ -2926,7 +2926,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            var score = 10 - Math.pow(0.75 * amountCases - 4, 2)
+            var score = 11 - Math.pow(1.25, amountCases)
             //var score = -1 + Math.pow(1.1, amountCases)
 
             //if (score > 10) {
