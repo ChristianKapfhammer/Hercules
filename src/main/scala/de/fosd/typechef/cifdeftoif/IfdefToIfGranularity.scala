@@ -136,7 +136,7 @@ trait IfdefToIfGranularityInterface {
       */
     protected def calculateBlockMapping(obj: Any, currentBlock: FeatureExpr = FeatureExprFactory.True, currentFunction: String = null): Unit = {
         obj match {
-            /*case x: InitDeclarator =>
+            case x: InitDeclarator =>
                 // Only look at declarations which take place outside functions
                 if (currentFunction == null) {
                     val setOfConditions: Set[FeatureExpr] = getAllConditionsFromTree(x)
@@ -149,7 +149,7 @@ trait IfdefToIfGranularityInterface {
                     if (cond != FeatureExprFactory.True) {
                         conditionalVariables += (x.getName -> conditionalVariablesExpr)
                     }
-                }*/
+                }
             case x: AST =>
 
                 var function = currentFunction
@@ -851,7 +851,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         ignoredStatements
     }
 
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/BinScores-Testing/"
+    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing - neu/"
     var scoreMap: Map[String, (Double, String)] = Map.empty[String, (Double, String)]
     var performanceScatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
     var performanceECDFMap: Map[String, Double] = Map.empty[String, Double]
@@ -1229,8 +1229,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             scoreAverage = scoreAverage / scoreList.size
 
-            string = string + k + "," + scoreAverage + "," + sum + "," + "\n"
-            string2 = string2 + k + "," + scoreAverage + "," + sum + "\n"
+            string = string + k + "," + Math.round(scoreAverage) + "," + sum + "," + "\n"
+            string2 = string2 + k + "," + Math.round(scoreAverage) + "," + sum + "\n"
         }
 
         pw.write(string)
