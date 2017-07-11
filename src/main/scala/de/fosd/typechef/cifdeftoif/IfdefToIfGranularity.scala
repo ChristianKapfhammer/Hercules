@@ -2011,8 +2011,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                     }
                                 }
 
-                                if (amountCases > 15) {
-                                    amountCases = 15
+                                if (amountCases > 20) {
+                                    amountCases = 20
                                 }
 
                                 if (amountCases != 0)
