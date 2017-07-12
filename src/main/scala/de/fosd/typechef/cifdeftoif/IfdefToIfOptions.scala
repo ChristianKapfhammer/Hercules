@@ -38,7 +38,6 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
     private var md: String = ""
     private var bcPath: String = ""
     private var gt: Double = 0.0
-    private var pfPath: String = ""
 
     def getFeatureConfigFilename: String = featureConfigFile
 
@@ -47,8 +46,6 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
     def getBCFilename: String = bcPath
 
     def getGToption: Double = gt
-
-    def getPFFilename: String = pfPath
 
     protected override def getOptionGroups() = {
         val groups = new util.ArrayList[OptionGroup](super.getOptionGroups())
@@ -77,7 +74,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
                     "Calculates the lines of code of each code block."),
                 new Options.Option("granularbinscore", LongOpt.REQUIRED_ARGUMENT, F_GRANULARBINSCORE, "threshold",
                     "Calculates the bin score each code block."),
-                new Options.Option("granularperffilter", LongOpt.REQUIRED_ARGUMENT, F_GRANULARPERFFILTER, "file",
+                new Options.Option("granularperffilter", LongOpt.REQUIRED_ARGUMENT, F_GRANULARPERFFILTER, "threshold",
                     "Filters te block with extern performance data."),
                 new Options.Option("externoptions", LongOpt.NO_ARGUMENT, F_EXTERNOPTIONS, null,
                     "Ifdeftoif transformation feature variables are exported into an external optionstruct.h file instead of adding them to the beginning of the transformed file."),
@@ -164,8 +161,12 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
             performance = true
             granularBinScore = true
         } else if (c == F_GRANULARPERFFILTER) {
-            checkFileExists(g.getOptarg)
-            pfPath = g.getOptarg
+            try {
+                gt = g.getOptarg.toDouble
+            } catch {
+                case e: Exception => throw new OptionException("Cannot transform " + g.getOptarg + " into number")
+            }
+
             parse = true
             typecheck = true
             ifdeftoif = true
