@@ -136,7 +136,7 @@ trait IfdefToIfGranularityInterface {
       */
     protected def calculateBlockMapping(obj: Any, currentBlock: FeatureExpr = FeatureExprFactory.True, currentFunction: String = null): Unit = {
         obj match {
-            case x: InitDeclarator =>
+            /*case x: InitDeclarator =>
                 // Only look at declarations which take place outside functions
                 if (currentFunction == null) {
                     val setOfConditions: Set[FeatureExpr] = getAllConditionsFromTree(x)
@@ -149,7 +149,7 @@ trait IfdefToIfGranularityInterface {
                     if (cond != FeatureExprFactory.True) {
                         conditionalVariables += (x.getName -> conditionalVariablesExpr)
                     }
-                }
+                }*/
             case x: AST =>
 
                 var function = currentFunction
@@ -2000,6 +2000,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                         case _: CaseStatement | _: DefaultStatement =>
                                             if (!insideCase) {
                                                 amountCases += 1
+                                                insideCase = true
                                             }
                                         case _: BreakStatement =>
                                             insideCase = false
