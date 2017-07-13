@@ -2008,10 +2008,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                     }
                                 }
 
-                                if (amountCases > 20) {
-                                    amountCases = 20
-                                }
-
                                 if (amountCases != 0)
                                     adjustedWeight = weight/amountCases
 
