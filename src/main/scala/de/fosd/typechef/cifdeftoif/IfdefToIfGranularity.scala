@@ -852,7 +852,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         ignoredStatements
     }
 
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/PerfFilter/"
+    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/BinScores-Both/"
     var scoreMap: Map[String, (Double, String)] = Map.empty[String, (Double, String)]
     var performanceScatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
     var performanceECDFMap: Map[String, Double] = Map.empty[String, Double]
@@ -1165,25 +1165,28 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             var map: Map[String, List[Double]] = Map.empty[String, List[Double]]
 
-            for (run <- 1 to 10) {
+            for (run <- 1 to 1) {
                 if (Files.exists(Paths.get(path + "performance_results/Run_" + run + "/" + i))) {
 
-                    for (line <- Source.fromFile(path + "performance_results/Run_" + run + "/" + i + "/perf_ay.txt").getLines()) {
-                        if (line.contains(" -> ")) {
-                            val lineParts = line.split(" -> ")
-                            val condition = lineParts(0).split("#").last
-                            val time = lineParts(1).split(" ms, ")(0).toDouble
-                            val measurements = lineParts(1).split("measurements: ").last.split(";").head.toInt
-                            var list: List[Double] = List.empty[Double]
+                    for (file <- getListOfFiles(path + "performance_results/Run_" + run + "/" + i)) {
 
-                            if (scoreMap.contains(condition)) {
-                                if (map.contains(condition)) {
-                                    list = map(condition)
-                                    map -= condition
+                        for (line <- Source.fromFile(file).getLines()) {
+                            if (line.contains(" -> ")) {
+                                val lineParts = line.split(" -> ")
+                                val condition = lineParts(0).split("#").last
+                                val time = lineParts(1).split(" ms, ")(0).toDouble
+                                val measurements = lineParts(1).split("measurements: ").last.split(";").head.toInt
+                                var list: List[Double] = List.empty[Double]
+
+                                if (scoreMap.contains(condition)) {
+                                    if (map.contains(condition)) {
+                                        list = map(condition)
+                                        map -= condition
+                                    }
+
+                                    list :::= List(time / measurements)
+                                    map += (condition -> list)
                                 }
-
-                                list :::= List(time / measurements)
-                                map += (condition -> list)
                             }
                         }
                     }
@@ -1219,7 +1222,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 sum += value
             }
 
-            sum = sum / 150
+            sum = sum / v.size
 
             var scoreAverage = 0.0
             val scoreList = readScores(k)
@@ -1306,8 +1309,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 sum += value
             }
 
-            sum = sum / 150
-            //println(v.size)
+            sum = sum / v.size
 
             string = string + k + "," + sum + "," + "\n"
         }
