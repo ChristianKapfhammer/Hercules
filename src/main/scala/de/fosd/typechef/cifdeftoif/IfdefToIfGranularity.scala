@@ -840,7 +840,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeMapFile()
         writeOperatorFile()
 
-        readScatterplotPerformance300AllYesFilesOneFile()
+        //calculateAverageForPerfFilter()
+        //readScatterplotPerformance300AllYesFilesOneFile()
         //calculateScatterplotForBinScore()
         //readScoreFile()
         //readAndWriteEDFPerformanceAllFiles()
@@ -851,7 +852,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         ignoredStatements
     }
 
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing - neu/"
+    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/PerfFilter/"
     var scoreMap: Map[String, (Double, String)] = Map.empty[String, (Double, String)]
     var performanceScatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
     var performanceECDFMap: Map[String, Double] = Map.empty[String, Double]
@@ -1248,30 +1249,21 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         for (i <- 0 to 299) {
             println("Starting Scatterplot " + i)
 
-            scoreMap = Map.empty[String, (Double, String)]
-
-            for (line <- Source.fromFile(path + "scoreMaps/map_" + i + ".csv").getLines()) {
-                val lineParts = line.split(",")
-
-                val cond = lineParts(1) + "_" + lineParts(0)
-                val value = lineParts(2).toDouble
-                scoreMap += (cond -> (value, ""))
-            }
-
             var map: Map[String, List[Double]] = Map.empty[String, List[Double]]
 
-            for (run <- 1 to 10) {
-                if (Files.exists(Paths.get(path + "performance_results/Run_" + run + "/" + i))) {
+            for (run <- 1 to 1) {
+                if (Files.exists(Paths.get(path + "performanceFilterData/" + i))) {
 
-                    for (line <- Source.fromFile(path + "performance_results/Run_" + run + "/" + i + "/perf_ay.txt").getLines()) {
-                        if (line.contains(" -> ")) {
-                            val lineParts = line.split(" -> ")
-                            val condition = lineParts(0).split("#").last
-                            val time = lineParts(1).split(" ms, ")(0).toDouble
-                            val measurements = lineParts(1).split("measurements: ").last.split(";").head.toInt
-                            var list: List[Double] = List.empty[Double]
+                    for (file <- getListOfFiles(path + "performanceFilterData/" + i)) {
 
-                            if (scoreMap.contains(condition)) {
+                        for (line <- Source.fromFile(file).getLines()) {
+                            if (line.contains(" -> ")) {
+                                val lineParts = line.split(" -> ")
+                                val condition = lineParts(0).split("#").last
+                                val time = lineParts(1).split(" ms, ")(0).toDouble
+                                val measurements = lineParts(1).split("measurements: ").last.split(";").head.toInt
+                                var list: List[Double] = List.empty[Double]
+
                                 if (map.contains(condition)) {
                                     list = map(condition)
                                     map -= condition
@@ -1314,7 +1306,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 sum += value
             }
 
-            sum = sum / v.size
+            sum = sum / 150
+            //println(v.size)
 
             string = string + k + "," + sum + "," + "\n"
         }
@@ -3025,24 +3018,26 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
     }
 
     private def analyzeFunctionCalls(): Unit = {
+        val maxValue = 10*(IF_WEIGHT + SWITCH_WEIGHT + LOOP_WEIGHT + CONTROL_FLOW_WEIGHT + FUNCTION_CALL_WEIGHT)
+
         // Analyze single functions and calculate their bin score
         for (func <- functionDefs) {
             var sum: Double = 0
 
             if (ifBinFunctions.contains(func)) {
-                sum += ifBinFunctions(func)
+                sum += IF_WEIGHT * ifBinFunctions(func)
             }
 
             if (switchBinFunctions.contains(func)) {
-                sum += switchBinFunctions(func)
+                sum += SWITCH_WEIGHT * switchBinFunctions(func)
             }
 
             if (loopsBinFunctions.contains(func)) {
-                sum += loopsBinFunctions(func)
+                sum += LOOP_WEIGHT * loopsBinFunctions(func)
             }
 
             if (flowBinFunctions.contains(func)) {
-                sum += flowBinFunctions(func)
+                sum += CONTROL_FLOW_WEIGHT * flowBinFunctions(func)
             }
 
             // Counting all called functions. Calls within blocks add 0.5 to the score.
@@ -3071,7 +3066,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             if (binScoreFunctions.contains(func)) {
                 binScoreFunctions -= func
             }
-            binScoreFunctions += (func -> Math.round((sum+callScore)/50).toInt)
+            binScoreFunctions += (func -> Math.round(((sum + FUNCTION_CALL_WEIGHT * callScore)/maxValue)*10).toInt)
         }
 
         // Analyze blocks and their functions calls
@@ -3102,12 +3097,11 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                             functions = functions.union(globalFunctionCalls(f).map(f => f.functionName).toSet.diff(recSet))
                         }
                     } else {
-                        score += 0.5
-                        /*if (binScoreFunctions.contains(func)) {
+                        if (binScoreFunctions.contains(func)) {
                             score += binScoreFunctions(func)
                         } else {
-                            score += 1
-                        }*/
+                            score += 0.5
+                        }
 
                         if (globalFunctionCalls.contains(func)) {
                             functions = functions.union(globalFunctionCalls(func).map(f => f.functionName).toSet)
