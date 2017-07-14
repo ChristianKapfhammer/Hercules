@@ -1972,6 +1972,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         }
                     case s: Statement =>
                         if (statementToBlock.containsKey(s)) {
+                            if (block == statementToBlock.get(s)) {
+                                adjustedWeight = 1.0
+                            }
+
                             block = statementToBlock.get(s)
 
                             if (!blockScores.contains(block)) {
