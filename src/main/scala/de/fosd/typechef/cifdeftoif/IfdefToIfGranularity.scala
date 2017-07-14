@@ -1992,18 +1992,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                                 adjustedWeight = weight/(i.elifs.size + 2)
                             case SwitchStatement(_, One(CompoundStatement(list))) =>
                                 var amountCases = 0
-                                var insideCase: Boolean = false
 
                                 // Count amount of case statements and default statement
                                 for (elem <- list) {
                                     elem.entry match {
                                         case _: CaseStatement | _: DefaultStatement =>
-                                            if (!insideCase) {
-                                                amountCases += 1
-                                                insideCase = true
-                                            }
-                                        case _: BreakStatement =>
-                                            insideCase = false
+                                            amountCases += 1
                                         case _ =>
                                     }
                                 }
