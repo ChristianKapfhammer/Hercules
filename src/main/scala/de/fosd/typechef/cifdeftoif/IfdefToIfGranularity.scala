@@ -809,9 +809,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         println(" - Calculating block mapping")
         calculateBlockMapping(ast)
-        for (b <- blockCapsuling) {
-            println(b._1 + " -> " + b._2)
-        }
         println(" - Calculating loop scores")
         calculateLoopScores(ast)
         loopCounter = 0
@@ -819,8 +816,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         granularity(ast)
         println(" - Calculating combined block scores")
         calculateBlockScores() // Calculates accumulated block scores for function scores
-        for (b <- blockScores) {
-            println(b._1 + " -> " + b._2)
+        for (c <- scoreCauses) {
+            println(c._1 + " -> " + c._2)
         }
         println(" - Calculating function scores")
         calculateFunctionScores()
@@ -2257,10 +2254,14 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         // Add function call costs to the corresponding blocks (single score)
         println("     -- Adding functions calls to single blocks")
+        for (b <- singleBlockScores) {
+            println(b._1 + " -> " + b._2)
+        }
         var i = 1
         for (value <- globalFunctionCalls.values) {
             println("         --- Adding function calls of function " + i.toString + " of " +  globalFunctionCalls.size)
             for (call <- value) {
+                println(call.functionName + " -> " + call.weight + " -> " + call.block)
                 if (call.condition != FeatureExprFactory.True) {
                     visitedCalledFunctions = Set.empty[String]
                     callCauses = Set.empty[String]
