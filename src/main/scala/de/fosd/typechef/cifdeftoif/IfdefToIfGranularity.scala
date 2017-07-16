@@ -1876,10 +1876,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                             weight: Double = 1.0, causes: Set[String] = Set.empty[String]): Unit = {
         var newCauses = causes
 
-        if (currentBlock == "SQLITE_COVERAGE_TEST_60") {
-            println(obj)
-        }
-
         obj match {
             case x: ForStatement =>
                 val currentLoop: Int = loopCounter
