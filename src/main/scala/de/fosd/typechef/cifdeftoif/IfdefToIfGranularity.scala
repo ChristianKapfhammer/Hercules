@@ -760,6 +760,10 @@ trait IfdefToIfGranularityInterface {
             functionRecSets = recSets
         }
 
+        for (set <- functionRecSets) {
+            println(set)
+        }
+
         functionRecSets
     }
 
