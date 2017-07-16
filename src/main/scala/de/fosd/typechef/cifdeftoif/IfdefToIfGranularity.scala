@@ -809,10 +809,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         println(" - Calculating block mapping")
         calculateBlockMapping(ast)
-        for(s <- blockToStatements("SQLITE_COVERAGE_TEST_60")) {
-            println(s)
+        if (blockToStatements.contains("SQLITE_COVERAGE_TEST_60")) {
+            blockToStatements("SQLITE_COVERAGE_TEST_60").entrySet().toArray().foreach(p => println(p))
+            println(blockToStatements("SQLITE_COVERAGE_TEST_60").size())
         }
-        println(blockToStatements("SQLITE_COVERAGE_TEST_60").size())
         println(" - Calculating loop scores")
         calculateLoopScores(ast)
         loopCounter = 0
