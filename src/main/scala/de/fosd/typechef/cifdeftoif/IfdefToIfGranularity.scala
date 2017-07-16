@@ -809,6 +809,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         println(" - Calculating block mapping")
         calculateBlockMapping(ast)
+        for (b <- blockCapsuling) {
+            println(b._1 + " -> " + b._2)
+        }
         println(" - Calculating loop scores")
         calculateLoopScores(ast)
         loopCounter = 0
@@ -816,6 +819,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         granularity(ast)
         println(" - Calculating combined block scores")
         calculateBlockScores() // Calculates accumulated block scores for function scores
+        for (b <- blockScores) {
+            println(b._1 + " -> " + b._2)
+        }
         println(" - Calculating function scores")
         calculateFunctionScores()
         println(" - Calculating recursions and adding function influence to blocks")
