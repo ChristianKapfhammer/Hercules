@@ -515,9 +515,14 @@ trait IfdefToIfGranularityInterface {
       */
     private def createBlockName(expr: FeatureExpr): String = {
         var id = 0
-            if(featureCounter.contains(expr)) {
-                id = featureCounter(expr)
-            }
+
+        if(featureCounter.contains(expr)) {
+            id = featureCounter(expr)
+
+            featureCounter -= expr
+        }
+
+        featureCounter += (expr -> (id + 1))
 
         contextToReadableString(expr) + "_" + id
         //expr.toString() + "_" + java.util.UUID.randomUUID.toString
@@ -584,18 +589,6 @@ trait IfdefToIfGranularityInterface {
 
                     blockCapsuling += (block -> set)
                 }
-            }
-
-            // Update feature counter
-            if (keysToRemove.nonEmpty || !blockToStatements.contains(currBlock)) {
-                var ftCounter = 0
-
-                if (featureCounter.contains(currentExpr)) {
-                    ftCounter = featureCounter(currentExpr)
-                    featureCounter -= currentExpr
-                }
-
-                featureCounter += (currentExpr -> (ftCounter + 1))
             }
         }
     }
@@ -809,10 +802,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         println(" - Calculating block mapping")
         calculateBlockMapping(ast)
-        if (blockToStatements.contains("SQLITE_COVERAGE_TEST_60")) {
-            blockToStatements("SQLITE_COVERAGE_TEST_60").entrySet().toArray().foreach(p => println(p))
-            println(blockToStatements("SQLITE_COVERAGE_TEST_60").size())
-        }
         println(" - Calculating loop scores")
         calculateLoopScores(ast)
         loopCounter = 0
