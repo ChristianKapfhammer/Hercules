@@ -130,8 +130,6 @@ trait IfdefToIfGranularityInterface {
     private var currentBlockMapping: Map[FeatureExpr, String] = Map.empty[FeatureExpr, String]
     private var conditionalVariables: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
     private var conditionalVariablesExpr: FeatureExpr = FeatureExprFactory.createDefinedExternal("COND_VAR")
-    private var choiceVariables: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
-    private var choiceVariablesExpr: FeatureExpr = FeatureExprFactory.createDefinedExternal("CHOICE_VAR")
 
     /**
       * Calculates the blocks of the code and saves the statements of the code.
@@ -186,7 +184,7 @@ trait IfdefToIfGranularityInterface {
                                 case i: IfStatement =>
                                     i.condition match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(choiceVariablesExpr)
+                                            cond = cond.&(createChoiceVariable(c.condition))
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -209,7 +207,7 @@ trait IfdefToIfGranularityInterface {
                                 case e: ElifStatement => // ElifStatement is no Statement (?!?)
                                     e.condition match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(choiceVariablesExpr)
+                                            cond = cond.&(createChoiceVariable(c.condition))
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -232,7 +230,7 @@ trait IfdefToIfGranularityInterface {
                                 case w: WhileStatement =>
                                     w.s match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(choiceVariablesExpr)
+                                            cond = cond.&(createChoiceVariable(c.condition))
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -255,7 +253,7 @@ trait IfdefToIfGranularityInterface {
                                 case d: DoStatement =>
                                     d.s match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(choiceVariablesExpr)
+                                            cond = cond.&(createChoiceVariable(c.condition))
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -406,6 +404,10 @@ trait IfdefToIfGranularityInterface {
             case None =>
             case o =>
         }
+    }
+
+    private def createChoiceVariable(expr: FeatureExpr): FeatureExpr = {
+        FeatureExprFactory.createDefinedExternal(expr.toString() + "_CHOICE_VAR")
     }
 
     private def checkIfContainsStatements(obj: Any): Boolean = {
@@ -2250,14 +2252,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
         // Add function call costs to the corresponding blocks (single score)
         println("     -- Adding functions calls to single blocks")
-        for (b <- singleBlockScores) {
-            println(b._1 + " -> " + b._2)
-        }
         var i = 1
         for (value <- globalFunctionCalls.values) {
             println("         --- Adding function calls of function " + i.toString + " of " +  globalFunctionCalls.size)
             for (call <- value) {
-                println(call.functionName + " -> " + call.weight + " -> " + call.block)
                 if (call.condition != FeatureExprFactory.True) {
                     visitedCalledFunctions = Set.empty[String]
                     callCauses = Set.empty[String]
