@@ -130,6 +130,8 @@ trait IfdefToIfGranularityInterface {
     private var currentBlockMapping: Map[FeatureExpr, String] = Map.empty[FeatureExpr, String]
     private var conditionalVariables: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
     private var conditionalVariablesExpr: FeatureExpr = FeatureExprFactory.createDefinedExternal("COND_VAR")
+    private var choiceVariables: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
+    private var choiceVariablesExpr: FeatureExpr = FeatureExprFactory.createDefinedExternal("CHOICE_VAR")
 
     /**
       * Calculates the blocks of the code and saves the statements of the code.
@@ -184,7 +186,7 @@ trait IfdefToIfGranularityInterface {
                                 case i: IfStatement =>
                                     i.condition match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
+                                            cond = cond.&(choiceVariablesExpr)
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -207,7 +209,7 @@ trait IfdefToIfGranularityInterface {
                                 case e: ElifStatement => // ElifStatement is no Statement (?!?)
                                     e.condition match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
+                                            cond = cond.&(choiceVariablesExpr)
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -230,7 +232,7 @@ trait IfdefToIfGranularityInterface {
                                 case w: WhileStatement =>
                                     w.s match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
+                                            cond = cond.&(choiceVariablesExpr)
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -253,7 +255,7 @@ trait IfdefToIfGranularityInterface {
                                 case d: DoStatement =>
                                     d.s match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
+                                            cond = cond.&(choiceVariablesExpr)
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -371,7 +373,7 @@ trait IfdefToIfGranularityInterface {
                             var cond = currentBlock
                             e.condition match {
                                 case c: Choice[_] =>
-                                    cond = cond.&(c.condition)
+                                    cond = cond.&(choiceVariablesExpr)
                                 case _ =>
                                     val set = getAllConditionsFromTree(e.condition)
 
