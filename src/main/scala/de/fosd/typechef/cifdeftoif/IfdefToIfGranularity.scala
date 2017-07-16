@@ -816,9 +816,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         granularity(ast)
         println(" - Calculating combined block scores")
         calculateBlockScores() // Calculates accumulated block scores for function scores
-        for (c <- scoreCauses) {
-            println(c._1 + " -> " + c._2)
-        }
         println(" - Calculating function scores")
         calculateFunctionScores()
         println(" - Calculating recursions and adding function influence to blocks")
@@ -1879,6 +1876,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                             weight: Double = 1.0, causes: Set[String] = Set.empty[String]): Unit = {
         var newCauses = causes
 
+        if (currentBlock == "SQLITE_COVERAGE_TEST_60") {
+            println(obj)
+        }
+
         obj match {
             case x: ForStatement =>
                 val currentLoop: Int = loopCounter
@@ -1973,6 +1974,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                         val funcName: String = p.name
 
                         if (currentBlock != null) {
+                            if (currentBlock == "SQLITE_COVERAGE_TEST_60") {
+                                println(currentFunction)
+                            }
+
                             val tuple = new FuncCall(funcName, block, blockToExpr(block), weight)
                             if (globalFunctionCalls.contains(currentFunction)) {
                                 val list = globalFunctionCalls(currentFunction)
