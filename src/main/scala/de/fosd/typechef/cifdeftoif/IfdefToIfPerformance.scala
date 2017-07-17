@@ -374,7 +374,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         var contextString = contextToReadableString(context)
         var id = ""
 
-        last match {
+        /*last match {
             case Opt(ft, ReturnStatement(_)) =>
                 id = statementMapping.get(last.entry)
             case Opt(ft, ExprStatement(PostfixExpr(Id(name), _))) if name.equals(returnMacroName) =>
@@ -385,7 +385,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
 
         if (id != null) {
             contextString = id
-        }
+        }*/
 
         val beforeStmt = ExprStatement(PostfixExpr(Id(functionName), FunctionCall(ExprList(List(Opt(trueF3, StringLit(List(Opt(trueF3, "\"" ++ contextString ++ "\"")))))))))
         val afterStmt = ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))
