@@ -184,7 +184,7 @@ trait IfdefToIfGranularityInterface {
                                 case i: IfStatement =>
                                     i.condition match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(createChoiceVariable(c.condition))
+                                            cond = cond.&(c.condition)
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -207,7 +207,7 @@ trait IfdefToIfGranularityInterface {
                                 case e: ElifStatement => // ElifStatement is no Statement (?!?)
                                     e.condition match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(createChoiceVariable(c.condition))
+                                            cond = cond.&(c.condition)
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -230,7 +230,7 @@ trait IfdefToIfGranularityInterface {
                                 case w: WhileStatement =>
                                     w.s match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(createChoiceVariable(c.condition))
+                                            cond = cond.&(c.condition)
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -253,7 +253,7 @@ trait IfdefToIfGranularityInterface {
                                 case d: DoStatement =>
                                     d.s match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(createChoiceVariable(c.condition))
+                                            cond = cond.&(c.condition)
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -371,7 +371,7 @@ trait IfdefToIfGranularityInterface {
                             var cond = currentBlock
                             e.condition match {
                                 case c: Choice[_] =>
-                                    cond = cond.&(createChoiceVariable(c.condition))
+                                    cond = cond.&(c.condition)
                                 case _ =>
                                     val set = getAllConditionsFromTree(e.condition)
 
@@ -404,10 +404,6 @@ trait IfdefToIfGranularityInterface {
             case None =>
             case o =>
         }
-    }
-
-    private def createChoiceVariable(expr: FeatureExpr): FeatureExpr = {
-        FeatureExprFactory.createDefinedExternal(contextToReadableString(expr) + "_CHOICE_VAR")
     }
 
     private def checkIfContainsStatements(obj: Any): Boolean = {
@@ -842,7 +838,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeOperatorFile()
 
         //calculateAverageForPerfFilter()
-        //readScatterplotPerformance300AllYesFilesOneFile()
+        readScatterplotPerformance300AllYesFilesOneFile()
         //calculateScatterplotForBinScore()
         //readScoreFile()
         //readAndWriteEDFPerformanceAllFiles()
@@ -1138,9 +1134,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 // replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
 
-                if (!(k == "SQLITE_COVERAGE_TEST_62" || k == "!SQLITE_OMIT_FOREIGN_KEY_32" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_117")) {
+                if (!(k == "!SQLITE_OMIT_FOREIGN_KEY_30" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_115")) {
                     string = string + k + "," + scoreAverage + "," + sum + "," + causes + "\n"
-                    string2 = string2 + k + "," + scoreAverage + "," + sum + "\n"
+                    string2 = string2 + scoreAverage + "," + sum + "\n"
                 }
             }
         }
@@ -1253,9 +1249,9 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             scoreAverage = scoreAverage / scoreList.size
 
-            if (!(k == "SQLITE_COVERAGE_TEST_62" || k == "!SQLITE_OMIT_FOREIGN_KEY_32" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_117" )) {
+            if (!(k == "!SQLITE_OMIT_FOREIGN_KEY_32" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_115")) {
                 string = string + k + "," + Math.round(scoreAverage) + "," + sum + "\n"
-                string2 = string2 + k + "," + Math.round(scoreAverage) + "," + sum + "\n"
+                string2 = string2 + Math.round(scoreAverage) + "," + sum + "\n"
             }
         }
 
