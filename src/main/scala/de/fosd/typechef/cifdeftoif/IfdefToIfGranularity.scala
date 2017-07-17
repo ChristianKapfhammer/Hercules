@@ -371,7 +371,7 @@ trait IfdefToIfGranularityInterface {
                             var cond = currentBlock
                             e.condition match {
                                 case c: Choice[_] =>
-                                    cond = cond.&(choiceVariablesExpr)
+                                    cond = cond.&(createChoiceVariable(c.condition))
                                 case _ =>
                                     val set = getAllConditionsFromTree(e.condition)
 
