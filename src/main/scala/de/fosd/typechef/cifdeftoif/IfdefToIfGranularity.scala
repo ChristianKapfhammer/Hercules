@@ -407,7 +407,7 @@ trait IfdefToIfGranularityInterface {
     }
 
     private def createChoiceVariable(expr: FeatureExpr): FeatureExpr = {
-        FeatureExprFactory.createDefinedExternal(expr.toString() + "_CHOICE_VAR")
+        FeatureExprFactory.createDefinedExternal(contextToReadableString(expr) + "_CHOICE_VAR")
     }
 
     private def checkIfContainsStatements(obj: Any): Boolean = {
