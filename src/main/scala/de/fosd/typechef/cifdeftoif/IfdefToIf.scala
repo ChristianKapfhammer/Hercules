@@ -3011,6 +3011,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                         val ifdefStatement = getIfdeftoifLabelStmt(cmpStmt)
                         val innerContext = fExprDiff(currentContext, optionalFeature.not().and(currentContext))
                         val innerIf = Opt(trueF, IfStatement(One(NAryExpr(switchExpr, List(Opt(FeatureExprFactory.True, NArySubExpr("==", expr))))), One(CompoundStatement(List(ifdefStatement))), List(), None))
+                        addIgnoredStatement(innerIf.entry)
                         toBeInserted = List(Opt(trueF, IfStatement(One(toCExpr(innerContext)), One(insertPerfFunctCalls(CompoundStatement(List(innerIf)), innerContext)), List(), None)))
                         insert ++ List(Opt(trueF, x.entry))
                     } else {
@@ -3231,6 +3232,7 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 case LabelStatement(id: Id, None) =>
                     if (id.name.startsWith(ifdeftoifDefaultLabelName)) {
                         stmt = Opt(trueF, GotoStatement(id))
+                        updateIgnoredStatements(stmt.entry, stmt.entry)
                     }
                 case _ =>
             }

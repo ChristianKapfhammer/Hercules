@@ -68,6 +68,10 @@ trait IfdefToIfPerformanceInterface {
     def updateIgnoredStatements(old: Any, updated: Any) = {
         // Nothing
     }
+
+    def addIgnoredStatement(stmt: Any) = {
+        // Nothing
+    }
 }
 
 trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilities {
@@ -149,32 +153,14 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
         }
     }
 
+    override def addIgnoredStatement(stmt: Any): Unit = {
+        if (ignoredStatements.nonEmpty) {
+            ignoredStatements.put(stmt, false)
+        }
+    }
+
     private def isStatementLegal(s: Statement): Boolean = {
         !ignoredStatements.containsKey(s)
-        /*val stmtMap = getASTElements(s, new IdentityHashMap[Any, Any]())
-
-        ignoredStatements.keySet().toArray.foreach(stmt => {
-            val ignoredMap = getASTElements(stmt, new IdentityHashMap[Any, Any]())
-
-            stmtMap.keySet().toArray.foreach(prt => {
-                if (ignoredMap.containsKey(prt)) {
-                    return false
-                }
-            })
-        })
-
-        true*/
-
-        /*s match {
-            case ExprStatement(AssignExpr(p: PostfixExpr, _, _)) =>
-                !ignoredStatements.containsKey(p) || !ignoredStatements.get(p)
-            case ExprStatement(AssignExpr(_, _, p: PostfixExpr)) =>
-                !ignoredStatements.containsKey(p) || !ignoredStatements.get(p)
-            case ExprStatement(CastExpr(_, e)) =>
-                !ignoredStatements.containsKey(e) || !ignoredStatements.get(e)
-            case _ =>
-                !ignoredStatements.containsKey(s) || !ignoredStatements.get(s)
-        }*/
     }
 
     override def correctPerformanceFeaturePrefix(newPrefix: String): Unit = {
@@ -380,7 +366,24 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
             case Opt(ft, ExprStatement(PostfixExpr(Id(name), _))) if name.equals(returnMacroName) =>
                 id = statementMapping.get(last.entry)
             case k =>
-                id = statementMapping.get(cmpstmt.innerStatements.head.entry)
+                var foundStatement = false
+
+                for (stmt <- cmpstmt.innerStatements if !foundStatement) {
+                    if (statementMapping.containsKey(stmt.entry)) {
+                        val stmtIdParts = statementMapping.get(stmt.entry).split("_")
+                        val stmtId = stmtIdParts.dropRight(1).mkString("_")
+
+                        if (stmtId == contextString) {
+                            id = statementMapping.get(stmt.entry)
+                            foundStatement = true
+                        }
+                    }
+
+                }
+
+                if (!foundStatement) {
+                    id = statementMapping.get(cmpstmt.innerStatements.head.entry)
+                }
         }
 
         if (id != null) {
