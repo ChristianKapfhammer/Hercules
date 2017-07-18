@@ -358,7 +358,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
 
         val last = cmpstmt.innerStatements.last
         var contextString = contextToReadableString(context)
-        var id = ""
+        /*var id = ""
 
         last match {
             case Opt(ft, ReturnStatement(_)) =>
@@ -390,7 +390,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
 
         if (id != null) {
             contextString = id
-        }
+        }*/
 
         val beforeStmt = ExprStatement(PostfixExpr(Id(functionName), FunctionCall(ExprList(List(Opt(trueF3, StringLit(List(Opt(trueF3, "\"" ++ contextString ++ "\"")))))))))
         val afterStmt = ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))
