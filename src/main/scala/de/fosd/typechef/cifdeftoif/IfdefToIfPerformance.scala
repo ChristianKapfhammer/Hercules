@@ -384,21 +384,6 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 if (!foundStatement) {
                     id = statementMapping.get(inner.head.entry)
                 }
-
-                if (id == "(SQLITE_COVERAGE_TEST && !SQLITE_OMIT_SUBQUERY)_6") {
-
-                    for (stmt <- inner) {
-                        if (statementMapping.containsKey(stmt.entry)) {
-                            println(statementMapping.get(stmt.entry))
-                        }
-
-                    }
-
-                    println(foundStatement)
-                    println(contextString)
-                    println(last)
-                    println("--------------------------------------------------------------------")
-                }
             case k =>
                 id = statementMapping.get(cmpstmt.innerStatements.head.entry)
         }
