@@ -386,6 +386,12 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 }
         }
 
+        if (id == "(SQLITE_COVERAGE_TEST && !SQLITE_OMIT_SUBQUERY)_6") {
+            println(contextString)
+            println(last)
+            println("--------------------------------------------------------------------")
+        }
+
         if (id != null) {
             contextString = id
         }
