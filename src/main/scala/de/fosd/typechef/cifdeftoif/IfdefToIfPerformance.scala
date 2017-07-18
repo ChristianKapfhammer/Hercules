@@ -365,10 +365,10 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 id = statementMapping.get(last.entry)
             case Opt(ft, ExprStatement(PostfixExpr(Id(name), _))) if name.equals(returnMacroName) =>
                 id = statementMapping.get(last.entry)
-            case k =>
+            case Opt(ft, CompoundStatement(inner)) =>
                 var foundStatement = false
 
-                for (stmt <- cmpstmt.innerStatements if !foundStatement) {
+                for (stmt <- inner if !foundStatement) {
                     if (statementMapping.containsKey(stmt.entry)) {
                         val stmtIdParts = statementMapping.get(stmt.entry).split("_")
                         val stmtId = stmtIdParts.dropRight(1).mkString("_")
@@ -382,7 +382,7 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                 }
 
                 if (!foundStatement) {
-                    id = statementMapping.get(cmpstmt.innerStatements.head.entry)
+                    id = statementMapping.get(inner.head.entry)
                 }
 
                 if (id == "(SQLITE_COVERAGE_TEST && !SQLITE_OMIT_SUBQUERY)_6") {
@@ -391,6 +391,8 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
                     println(last)
                     println("--------------------------------------------------------------------")
                 }
+            case k =>
+                id = statementMapping.get(cmpstmt.innerStatements.head.entry)
         }
 
         if (id != null) {
