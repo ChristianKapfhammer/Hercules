@@ -525,7 +525,6 @@ trait IfdefToIfGranularityInterface {
         featureCounter += (expr -> (id + 1))
 
         contextToReadableString(expr) + "_" + id
-        //expr.toString() + "_" + java.util.UUID.randomUUID.toString
     }
 
     private def contextToReadableString(context: FeatureExpr): String = {
@@ -567,8 +566,6 @@ trait IfdefToIfGranularityInterface {
             statementToBlock.put(stmt, currBlock)
 
             // Update statementMapping
-            //val blockNameParts = currBlock.split("_")
-            //statementMapping.put(stmt, blockNameParts(blockNameParts.size - 1))
             statementMapping.put(stmt, currBlock)
 
             // Update blockCapsuling
@@ -838,7 +835,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeOperatorFile()
 
         //calculateAverageForPerfFilter()
-        readScatterplotPerformance300AllYesFilesOneFile()
+        //readScatterplotPerformance300AllYesFilesOneFile()
         //calculateScatterplotForBinScore()
         //readScoreFile()
         //readAndWriteEDFPerformanceAllFiles()
@@ -1134,7 +1131,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 // replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
 
-                if (!(k == "!SQLITE_OMIT_FOREIGN_KEY_30" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_115")) {
+                if (!(k == "!SQLITE_OMIT_FOREIGN_KEY_32" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_117")) {
                     string = string + k + "," + scoreAverage + "," + sum + "," + causes + "\n"
                     string2 = string2 + scoreAverage + "," + sum + "\n"
                 }
@@ -1249,7 +1246,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             scoreAverage = scoreAverage / scoreList.size
 
-            if (!(k == "!SQLITE_OMIT_FOREIGN_KEY_32" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_115")) {
+            if (!(k == "!SQLITE_OMIT_FOREIGN_KEY_32" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_117")) {
                 string = string + k + "," + Math.round(scoreAverage) + "," + sum + "\n"
                 string2 = string2 + Math.round(scoreAverage) + "," + sum + "\n"
             }
