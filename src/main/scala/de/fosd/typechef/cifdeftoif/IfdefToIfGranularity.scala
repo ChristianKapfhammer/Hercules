@@ -129,7 +129,7 @@ trait IfdefToIfGranularityInterface {
     // Global for block mapping calculation
     private var currentBlockMapping: Map[FeatureExpr, String] = Map.empty[FeatureExpr, String]
     private var conditionalVariables: Map[String, FeatureExpr] = Map.empty[String, FeatureExpr]
-    private var conditionalVariablesExpr: FeatureExpr = FeatureExprFactory.createDefinedExternal("COND_VAR")
+    private val conditionalVariablesExpr: FeatureExpr = FeatureExprFactory.createDefinedExternal("COND_VAR")
 
     /**
       * Calculates the blocks of the code and saves the statements of the code.
@@ -184,7 +184,7 @@ trait IfdefToIfGranularityInterface {
                                 case i: IfStatement =>
                                     i.condition match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
+                                            cond = cond.&(createChoiceVariable(c.condition))
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -207,7 +207,7 @@ trait IfdefToIfGranularityInterface {
                                 case e: ElifStatement => // ElifStatement is no Statement (?!?)
                                     e.condition match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
+                                            cond = cond.&(createChoiceVariable(c.condition))
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -230,7 +230,7 @@ trait IfdefToIfGranularityInterface {
                                 case w: WhileStatement =>
                                     w.s match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
+                                            cond = cond.&(createChoiceVariable(c.condition))
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -253,7 +253,7 @@ trait IfdefToIfGranularityInterface {
                                 case d: DoStatement =>
                                     d.s match {
                                         case c: Choice[_] =>
-                                            cond = cond.&(c.condition)
+                                            cond = cond.&(createChoiceVariable(c.condition))
                                         case One(n: NAryExpr) =>
                                             var optFound = false
                                             for (i <- n.others
@@ -371,7 +371,7 @@ trait IfdefToIfGranularityInterface {
                             var cond = currentBlock
                             e.condition match {
                                 case c: Choice[_] =>
-                                    cond = cond.&(c.condition)
+                                    cond = cond.&(createChoiceVariable(c.condition))
                                 case _ =>
                                     val set = getAllConditionsFromTree(e.condition)
 
@@ -404,6 +404,10 @@ trait IfdefToIfGranularityInterface {
             case None =>
             case o =>
         }
+    }
+
+    private def createChoiceVariable(expr: FeatureExpr): FeatureExpr = {
+        FeatureExprFactory.createDefinedExternal(contextToReadableString(expr) + "_CHOICE_VAR")
     }
 
     private def checkIfContainsStatements(obj: Any): Boolean = {
@@ -702,7 +706,6 @@ trait IfdefToIfGranularityInterface {
 
         println("     -- Calculating recursions")
         var i = 1
-        var visitedFunctions: Set[String] = Set.empty[String]
 
         for (func <- globalFunctionCalls.keySet) {
             println("         --- Attempting to calculate recursion: Evaluating calls of function  " + i.toString + " of " +  globalFunctionCalls.size)
@@ -715,18 +718,6 @@ trait IfdefToIfGranularityInterface {
                 }
 
             }
-
-            /*for (call <- funcCalls) {
-                if (!visitedFunctions.contains(call.functionName) && functionRecSets.forall(set => !set.contains(call.functionName))) {
-                    visitedFunctions += call.functionName
-
-                    getRecSet(call) match {
-                        case Some(x) =>
-                            functionRecSets += x
-                        case None =>
-                    }
-                }
-            }*/
 
             i += 1
         }
