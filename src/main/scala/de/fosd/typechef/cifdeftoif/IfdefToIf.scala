@@ -3237,6 +3237,13 @@ class IfdefToIf extends ASTNavigation with ConditionalNavigation with IfdefToIfS
                 case _ =>
             }
         }
+
+        stmt.entry match {
+            case x:BreakStatement =>
+                addIgnoredStatement(stmt.entry)
+            case _ =>
+        }
+
         stmt
     }
 
