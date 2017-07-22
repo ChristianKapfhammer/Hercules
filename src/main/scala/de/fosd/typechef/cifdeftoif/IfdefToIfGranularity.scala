@@ -823,7 +823,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeMapFile()
         writeOperatorFile()
 
-        checkTimes()
+        //checkTimes()
         //calculateAverageForPerfFilter()
         //readScatterplotPerformance300AllYesFilesOneFile()
         //calculateScatterplotForBinScore()
@@ -1530,10 +1530,10 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         for (i <- 0 to 1) {
 
             println("Starting ECDF " + i)
-            var map: Map[String, (Double, Double)] = Map.empty[String, (Double, Double)]
-            var finalTimes: Map[String, Double] = Map.empty[String, Double]
-
             for (file <- getListOfFiles(path + "mean_results/" + i + "/")) {
+                var map: Map[String, (Double, Double)] = Map.empty[String, (Double, Double)]
+                var finalTimes: Map[String, Double] = Map.empty[String, Double]
+
                 println("Reading file" + file)
                 for (line <- Source.fromFile(file).getLines()) {
                     if (line.contains(" -> ")) {
@@ -1567,10 +1567,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 var sumTime = 0.0
 
                 for ((k, v) <- finalTimes) {
-
-                    if (k != BASE_NAME) {
-                        sumTime += v
-                    }
+                    sumTime += v
                 }
 
                 var test = ""
