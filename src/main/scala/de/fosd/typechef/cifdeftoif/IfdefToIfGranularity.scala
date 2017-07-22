@@ -804,16 +804,18 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             if (block._1 != null && blockToStatements.contains(block._1) && block._2 < threshold) {
                 val statements = blockToStatements(block._1)
 
-                statements.keySet().toArray.foreach({
-                    case i@IfStatement(_, One(CompoundStatement(list)), _, _) =>
-                        ignoredStatements.put(i, block._2 < threshold)
+                if (!(block._1 == "SQLITE_COVERAGE_TEST_CHOICE_VAR_11" || block._1 == "!SQLITE_OMIT_FOREIGN_KEY_30" || block._1 == "!SQLITE_OMIT_FOREIGN_KEY_31" || block._1 == "!SQLITE_NO_SYNC_1" || block._1 == "COND_VAR_115")) {
+                    statements.keySet().toArray.foreach({
+                        case i@IfStatement(_, One(CompoundStatement(list)), _, _) =>
+                            ignoredStatements.put(i, block._2 < threshold)
 
-                        if (list.size == 1) {
-                            ignoredStatements.put(list.head.entry, block._2 < threshold)
-                        }
-                    case s: Statement =>
-                        ignoredStatements.put(s, block._2 < threshold)
-                })
+                            if (list.size == 1) {
+                                ignoredStatements.put(list.head.entry, block._2 < threshold)
+                            }
+                        case s: Statement =>
+                            ignoredStatements.put(s, block._2 < threshold)
+                    })
+                }
             }
         })
 
@@ -821,10 +823,12 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         writeMapFile()
         writeOperatorFile()
 
+        checkTimes()
         //calculateAverageForPerfFilter()
         //readScatterplotPerformance300AllYesFilesOneFile()
         //calculateScatterplotForBinScore()
         //readScoreFile()
+        //readAndWriteEDFPerformanceAllFiles()
         //readAndWriteEDFPerformanceAllFiles()
         //writeScatterplotFile()
         //readAndWriteScatterplotPerformanceAll300Files()
@@ -835,7 +839,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
     //var path: String = "/home/christian/Masterarbeit/Pearson-Plots/PerfFilter/"
     //var path: String = "/home/christian/Masterarbeit/Pearson-Plots/BinScores-Both/"
-    var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing - neu/"
+    //var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing - neu/"
+    var path: String = "/home/christian/Masterarbeit/"
     var scoreMap: Map[String, (Double, String)] = Map.empty[String, (Double, String)]
     var performanceScatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
     var performanceECDFMap: Map[String, Double] = Map.empty[String, Double]
@@ -1081,6 +1086,8 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
         }
 
+        var counter = 0
+
         for ((k, v) <- scatterMap) {
             var sum: Double = 0.0
 
@@ -1114,16 +1121,22 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                     setOfCauses -= "N"
                 }
 
+                if (scoreAverage < 200) {
+                    counter += 1
+                }
+
                 causes = setOfCauses.mkString("|")
 
                 // replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
 
-                if (!(k == "!SQLITE_OMIT_FOREIGN_KEY_32" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_117")) {
+                if (!(k == "SQLITE_COVERAGE_TEST_CHOICE_VAR_11" || k == "!SQLITE_OMIT_FOREIGN_KEY_30" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_115")) {
                     string = string + k + "," + scoreAverage + "," + sum + "," + causes + "\n"
                     string2 = string2 + scoreAverage + "," + sum + "\n"
                 }
             }
         }
+
+        println(counter)
 
         pw.write(string)
         pw.close()
@@ -1233,7 +1246,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             scoreAverage = scoreAverage / scoreList.size
 
-            if (!(k == "!SQLITE_OMIT_FOREIGN_KEY_32" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_117")) {
+            if (!(k == "SQLITE_COVERAGE_TEST_CHOICE_VAR_11" || k == "!SQLITE_OMIT_FOREIGN_KEY_30" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_115")) {
                 string = string + k + "," + Math.round(scoreAverage) + "," + sum + "\n"
                 string2 = string2 + Math.round(scoreAverage) + "," + sum + "\n"
             }
@@ -1375,9 +1388,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
-    var totalTime: Double = 0.0
-    var overheadTime: Double = 0.0
-
     private def readEDFPerformanceAllYesFiles(): Unit = {
         var map: Map[String, (Double, Double)] = Map.empty[String, (Double, Double)]
         var finalTimes: Map[String, Double] = Map.empty[String, Double]
@@ -1423,34 +1433,39 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
             performanceECDFMap += (condition -> value)
         }
-    }
+    }*/
+
+    var totalTime: Double = 0.0
+    var overheadTime: Double = 0.0
 
     private def readAndWriteEDFPerformanceAllFiles(): Unit = {
         var counter = 0
 
         for (i <- 0 to 299) {
-            val pw = new PrintWriter(new File("/home/christian/Masterarbeit/Zuweisung-Scores-Laufzeit/files/edcf_" + i + ".csv"))
+            val pw = new PrintWriter(new File(path + "ecdf_files/edcf_" + i + ".csv"))
             var string = ""
 
             println("Starting ECDF " + i)
             var map: Map[String, (Double, Double)] = Map.empty[String, (Double, Double)]
             var finalTimes: Map[String, Double] = Map.empty[String, Double]
 
-            scoreMap = Map.empty[String, Double]
+            scoreMap = Map.empty[String, (Double, String)]
 
-            for (line <- Source.fromFile("/home/christian/Masterarbeit/Zuweisung-Scores-Laufzeit/scoreMaps/map_" + i + ".csv").getLines()) {
+            for (line <- Source.fromFile(path + "scoreMaps/map_" + i + ".csv").getLines()) {
                 val lineParts = line.split(",")
 
-                scoreMap += (lineParts(0) -> lineParts(2).toDouble)
+                val cond = lineParts(1) + "_" + lineParts(0)
+                val value = lineParts(2).toDouble
+                scoreMap += (cond -> (value, ""))
             }
 
-            for (file <- getListOfFiles("/home/christian/Masterarbeit/Zuweisung-Scores-Laufzeit/performance_results/" + i + "/")) {
+            for (file <- getListOfFiles(path + "performance_results/Run_1/" + i + "/")) {
                 println("Reading file" + file)
                 for (line <- Source.fromFile(file).getLines()) {
                     if (line.contains(" -> ")) {
                         val lineParts = line.split(" -> ")
                         val innerTime = lineParts(1).split(" ms, ")(0).toDouble
-                        val outerTime = lineParts(1).split(" ms, ")(0).split(" ms")(0).toDouble
+                        val outerTime = lineParts(1).split(" ms, ")(1).split(" ms")(0).toDouble
 
                         map += (lineParts(0) -> (innerTime, outerTime))
                     }
@@ -1490,7 +1505,15 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 for ((k, v) <- performanceECDFMap) {
                     if (scoreMap.contains(k)) {
-                        string = string + counter + "," + scoreMap(k) + "," + v / totalTime + "\n"
+                        var score: Double = scoreMap(k)._1
+
+                        if (score < 0.0000000001) {
+                            score = 0
+                        }
+
+                        if (!(k == "SQLITE_COVERAGE_TEST_CHOICE_VAR_11" || k == "!SQLITE_OMIT_FOREIGN_KEY_30" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_115")) {
+                            string = string + counter + "," + score + "," + v / totalTime + "\n"
+                        }
                     }
                 }
 
@@ -1502,6 +1525,69 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         }
     }
 
+    private def checkTimes(): Unit = {
+
+        for (i <- 0 to 1) {
+
+            println("Starting ECDF " + i)
+            var map: Map[String, (Double, Double)] = Map.empty[String, (Double, Double)]
+            var finalTimes: Map[String, Double] = Map.empty[String, Double]
+
+            for (file <- getListOfFiles(path + "mean_results/" + i + "/")) {
+                println("Reading file" + file)
+                for (line <- Source.fromFile(file).getLines()) {
+                    if (line.contains(" -> ")) {
+                        val lineParts = line.split(" -> ")
+                        val innerTime = lineParts(1).split(" ms, ")(0).toDouble
+                        val outerTime = lineParts(1).split(" ms, ")(1).split(" ms")(0).toDouble
+
+                        map += (lineParts(0) -> (innerTime, outerTime))
+                    }
+
+                    if (line.startsWith("Total time: ")) {
+                        val lineParts = line.split(" ms ")
+                        totalTime = lineParts(0).replaceFirst("Total time: ", "").toDouble
+                        overheadTime = lineParts(1).replace("(overhead: ", "").replace(")", "").toDouble
+                    }
+                }
+
+                for ((k1, v1Tuple) <- map) {
+                    var currentTime: Double = v1Tuple._1
+
+                    for ((k2, v2Tuple) <- map) {
+                        if (k1 != k2 && isSuccessor(k1, k2)) {
+                            currentTime -= v2Tuple._1
+                            currentTime -= v2Tuple._2
+                        }
+                    }
+
+                    finalTimes += (k1 -> currentTime)
+                }
+
+                var sumTime = 0.0
+
+                for ((k, v) <- finalTimes) {
+
+                    if (k != BASE_NAME) {
+                        sumTime += v
+                    }
+                }
+
+                var test = ""
+
+                test = test.split("#")(0)
+
+                if (sumTime != totalTime) {
+                    println("Something's wrong in " + i)
+                    println("Total time: " + totalTime)
+                    println("Summed time: " + sumTime)
+                } else {
+                    println("OK")
+                }
+            }
+        }
+    }
+
     private val BASE_NAME: String = "BASE"
 
     private def getNumberOfDividers(string: String): Int = {
@@ -1510,69 +1596,7 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
     private def isSuccessor(shortString: String, possibleSuccessorString: String): Boolean = {
         (shortString.equals(BASE_NAME) && getNumberOfDividers(possibleSuccessorString) == 0) || (possibleSuccessorString.startsWith(shortString + "#") && getNumberOfDividers(possibleSuccessorString) == getNumberOfDividers(shortString) + 1)
-    }*/
-
-    private def writeScatterplotFile(): Unit = {
-        var pw = new PrintWriter(new File("/home/christian/Masterarbeit/Zuweisung-Scores-Laufzeit/scatterplot_average.csv"))
-        var string = "Score,Performance\n"
-
-        for ((k, v) <- performanceScatterMap) {
-            var sum: Double = 0.0
-
-            for (value <- v) {
-                sum += value
-            }
-
-            sum = sum/v.size
-
-            string = string + scoreMap(k) + "," + sum + "\n"
-
-
-        }
-
-        pw.write(string)
-        pw.close()
-
-        pw = new PrintWriter(new File("/home/christian/Masterarbeit/Zuweisung-Scores-Laufzeit/scatterplot_median.csv"))
-        string = "Score,Performance\n"
-
-        for ((k, v) <- performanceScatterMap) {
-            var sum: Double = 0.0
-
-            //Median
-            val sortedList = v.sorted
-
-            if (sortedList.size % 2 == 0) {
-                sum = (sortedList(sortedList.size/2) + sortedList(sortedList.size/2 + 1))/2
-            } else {
-                if (sortedList.size == 1) {
-                    sum = sortedList(sortedList.size/2)
-                } else {
-                    sum = sortedList(sortedList.size/2 + 1)
-                }
-            }
-
-            string = string + scoreMap(k) + "," + sum + "\n"
-
-        }
-
-        pw.write(string)
-        pw.close()
     }
-
-    /*private def writeECDFFile(): Unit = {
-        val pw = new PrintWriter(new File("/home/christian/Zuweisung-Scores-Laufzeit/edcf.csv"))
-        var string = ""
-
-        for ((k, v) <- performanceECDFMap) {
-            if (scoreMap.contains(k)) {
-                string = string + scoreMap(k) + "," + v / totalTime + "\n"
-            }
-        }
-
-        pw.write(string)
-        pw.close()
-    }*/
 
     private def writeDataFile(): Unit = {
         val pw = new PrintWriter(new File(dir + "data.csv"))
@@ -2374,16 +2398,18 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             if (block._1 != null && blockToStatements.contains(block._1) && block._2 < threshold) {
                 val statements = blockToStatements(block._1)
 
-                statements.keySet().toArray.foreach({
-                    case i@IfStatement(_, One(CompoundStatement(list)), _, _) =>
-                        ignoredStatements.put(i, block._2 < threshold)
+                if (!(block._1 == "SQLITE_COVERAGE_TEST_CHOICE_VAR_11" || block._1 == "!SQLITE_OMIT_FOREIGN_KEY_30" || block._1 == "!SQLITE_OMIT_FOREIGN_KEY_31" || block._1 == "!SQLITE_NO_SYNC_1" || block._1 == "COND_VAR_115")) {
+                    statements.keySet().toArray.foreach({
+                        case i@IfStatement(_, One(CompoundStatement(list)), _, _) =>
+                            ignoredStatements.put(i, block._2 < threshold)
 
-                        if (list.size == 1) {
-                            ignoredStatements.put(list.head.entry, block._2 < threshold)
-                        }
-                    case s: Statement =>
-                        ignoredStatements.put(s, block._2 < threshold)
-                })
+                            if (list.size == 1) {
+                                ignoredStatements.put(list.head.entry, block._2 < threshold)
+                            }
+                        case s: Statement =>
+                            ignoredStatements.put(s, block._2 < threshold)
+                    })
+                }
             }
         })
 
