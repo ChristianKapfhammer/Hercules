@@ -333,7 +333,6 @@ class IfdefToIfBlockCoverage extends IfdefToIfBlockCoverageInterface with IOUtil
 
         origin.foreach(oriConf => {
             extension.foreach(extConf => {
-                // TODO: Simplify expression
                 val mergedConf: FeatureExpr = oriConf.and(extConf)
 
                 if (mergedConf.isSatisfiable() && oriConf != extConf) {
