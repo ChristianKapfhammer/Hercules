@@ -358,39 +358,6 @@ trait IfdefToIfPerformance extends IfdefToIfPerformanceInterface with IOUtilitie
 
         val last = cmpstmt.innerStatements.last
         var contextString = contextToReadableString(context)
-        /*var id = ""
-
-        last match {
-            case Opt(ft, ReturnStatement(_)) =>
-                id = statementMapping.get(last.entry)
-            case Opt(ft, ExprStatement(PostfixExpr(Id(name), _))) if name.equals(returnMacroName) =>
-                id = statementMapping.get(last.entry)
-            case Opt(ft, CompoundStatement(inner)) =>
-                var foundStatement = false
-
-                for (stmt <- inner if !foundStatement) {
-                    if (statementMapping.containsKey(stmt.entry)) {
-                        val stmtIdParts = statementMapping.get(stmt.entry).split("_")
-                        val stmtId = stmtIdParts.dropRight(1).mkString("_")
-
-                        if (stmtId == contextString) {
-                            id = statementMapping.get(stmt.entry)
-                            foundStatement = true
-                        }
-                    }
-
-                }
-
-                if (!foundStatement) {
-                    id = statementMapping.get(inner.head.entry)
-                }
-            case k =>
-                id = statementMapping.get(cmpstmt.innerStatements.head.entry)
-        }
-
-        if (id != null) {
-            contextString = id
-        }*/
 
         val beforeStmt = ExprStatement(PostfixExpr(Id(functionName), FunctionCall(ExprList(List(Opt(trueF3, StringLit(List(Opt(trueF3, "\"" ++ contextString ++ "\"")))))))))
         val afterStmt = ExprStatement(PostfixExpr(Id(functionAfterName), FunctionCall(ExprList(List(Opt(trueF3, Constant(numberOfStatements.toString)))))))

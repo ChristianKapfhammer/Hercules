@@ -782,8 +782,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
         readFunctionConfigFile()
         readFunctionOffsetFile()
 
-        codeAnalysis(ast)
-
         println(" - Calculating block mapping")
         calculateBlockMapping(ast)
         println(" - Calculating loop scores")
@@ -804,908 +802,20 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             if (block._1 != null && blockToStatements.contains(block._1) && block._2 < threshold) {
                 val statements = blockToStatements(block._1)
 
-                if (!(block._1 == "SQLITE_COVERAGE_TEST_CHOICE_VAR_11" || block._1 == "!SQLITE_OMIT_FOREIGN_KEY_30" || block._1 == "!SQLITE_OMIT_FOREIGN_KEY_31" || block._1 == "!SQLITE_NO_SYNC_1" || block._1 == "COND_VAR_115")) {
-                    statements.keySet().toArray.foreach({
-                        case i@IfStatement(_, One(CompoundStatement(list)), _, _) =>
-                            ignoredStatements.put(i, block._2 < threshold)
+                statements.keySet().toArray.foreach({
+                    case i@IfStatement(_, One(CompoundStatement(list)), _, _) =>
+                        ignoredStatements.put(i, block._2 < threshold)
 
-                            if (list.size == 1) {
-                                ignoredStatements.put(list.head.entry, block._2 < threshold)
-                            }
-                        case s: Statement =>
-                            ignoredStatements.put(s, block._2 < threshold)
-                    })
-                }
+                        if (list.size == 1) {
+                            ignoredStatements.put(list.head.entry, block._2 < threshold)
+                        }
+                    case s: Statement =>
+                        ignoredStatements.put(s, block._2 < threshold)
+                })
             }
         })
 
-        writeDataFile()
-        writeMapFile()
-        writeOperatorFile()
-
-        //checkTimes()
-        //calculateAverageForPerfFilter()
-        //readScatterplotPerformance300AllYesFilesOneFile()
-        //calculateScatterplotForBinScore()
-        //readScoreFile()
-        //readAndWriteEDFPerformanceAllFiles()
-        //readAndWriteEDFPerformanceAllFiles()
-        //writeScatterplotFile()
-        //readAndWriteScatterplotPerformanceAll300Files()
-        //writeScatterplotFile()
-
         ignoredStatements
-    }
-
-    //var path: String = "/home/christian/Masterarbeit/Pearson-Plots/PerfFilter/"
-    //var path: String = "/home/christian/Masterarbeit/Pearson-Plots/BinScores-Both/"
-    //var path: String = "/home/christian/Masterarbeit/Pearson-Plots/Testing - neu/"
-    var path: String = "/home/christian/Masterarbeit/"
-    var scoreMap: Map[String, (Double, String)] = Map.empty[String, (Double, String)]
-    var performanceScatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
-    var performanceECDFMap: Map[String, Double] = Map.empty[String, Double]
-
-    private def readScoreFile(): Unit = {
-        for (line <- Source.fromFile("/home/christian/Masterarbeit/Zuweisung-Scores-Laufzeit/scoreMaps/map_0.csv").getLines()) {
-            val lineParts = line.split(",")
-
-            val value = lineParts(2).toDouble
-            val causes = lineParts(3).replace(";", "|").replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
-
-            scoreMap += (lineParts(0) -> (value, causes))
-        }
-    }
-
-    private def readScatterplotPerformanceAllYesFiles(): Unit = {
-        var map: Map[String, List[Double]] = Map.empty[String, List[Double]]
-
-        for (line <- Source.fromFile("/home/christian/Masterarbeit/Zuweisung-Scores-Laufzeit/performance_results/0/perf_ay.txt").getLines()) {
-            if (line.contains(" -> ")) {
-                val lineParts = line.split(" -> ")
-                val conditionParts = lineParts(0).split("#")
-                val time = lineParts(1).split(" ms, ")(0).toDouble
-
-                var list: List[Double] = List.empty[Double]
-
-                if (scoreMap.contains(conditionParts(conditionParts.size - 1))) {
-                    if (map.contains(conditionParts(conditionParts.size - 1))) {
-                        list = map(conditionParts(conditionParts.size - 1))
-                        map -= conditionParts(conditionParts.size - 1)
-                    }
-
-                    list :::= List(time)
-                    map += (conditionParts(conditionParts.size - 1) -> list)
-                }
-            }
-        }
-
-        for ((k, v) <- map) {
-            var max: Double = 0
-
-            for (value <- v) {
-                if (max < value) {
-                    max = value
-                }
-            }
-
-            var performanceList: List[Double] = List.empty[Double]
-
-            if (performanceScatterMap.contains(k)) {
-                performanceList = performanceScatterMap(k)
-                performanceScatterMap -= k
-            }
-
-            performanceList :::= List(max)
-            performanceScatterMap += (k -> performanceList)
-        }
-    }
-
-    private def readScatterplotPerformance300AllYesFiles(): Unit = {
-        for (i <- 0 to 299) {
-
-            println("Starting Scatterplot " + i)
-            var scatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
-
-            scoreMap = Map.empty[String, (Double, String)]
-
-            for (line <- Source.fromFile(path + "scoreMaps/map_" + i + ".csv").getLines()) {
-                val lineParts = line.split(",")
-
-                val value = lineParts(2).toDouble
-                val causes = lineParts(3).replace(";", "|").replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
-
-                scoreMap += (lineParts(0) -> (value, causes))
-            }
-
-            var map: Map[String, List[Double]] = Map.empty[String, List[Double]]
-
-            if (Files.exists(Paths.get(path + "performance_results/Run_1/" + i))) {
-
-                val pw = new PrintWriter(new File(path + "data/data_" + i + ".csv"))
-                var string = "Transformation,Block,Score,Performance,Causes\n"
-                val pw2 = new PrintWriter(new File(path + "data/pearson_data_" + i + ".csv"))
-                var string2 = "Score,Performance\n"
-
-                for (run <- 1 to 10) {
-                    if (Files.exists(Paths.get(path + "performance_results/Run_" + run + "/" + i))
-                        && Files.exists(Paths.get(path + "performance_results/Run_" + run + "/" + i + "/perf_ay.txt"))) {
-
-                        for (line <- Source.fromFile(path + "performance_results/Run_" + run + "/" + i + "/perf_ay.txt").getLines()) {
-                            if (line.contains(" -> ")) {
-                                val lineParts = line.split(" -> ")
-                                val condition = lineParts(0).split("#").last.split("_").last
-                                val time = lineParts(1).split(" ms, ")(0).toDouble
-                                val measurements = lineParts(1).split("measurements: ").last.split(";").head.toInt
-                                var list: List[Double] = List.empty[Double]
-
-                                if (scoreMap.contains(condition)) {
-                                    if (map.contains(condition)) {
-                                        list = map(condition)
-                                        map -= condition
-                                    }
-
-                                    list :::= List(time / measurements)
-                                    map += (condition -> list)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                for ((k, v) <- map) {
-                    var sum: Double = 0
-
-                    for (value <- v) {
-                        sum += value
-                    }
-
-                    sum = sum / v.size
-
-                    var performanceList: List[Double] = List.empty[Double]
-
-                    if (scatterMap.contains(k)) {
-                        performanceList = scatterMap(k)
-                        scatterMap -= k
-                    }
-
-                    performanceList :::= List(sum)
-                    scatterMap += (k -> performanceList)
-                }
-
-                for ((k, v) <- scatterMap) {
-                    var sum: Double = 0.0
-
-                    // Average
-                    for (value <- v) {
-                        sum += value
-                    }
-
-                    sum = sum / v.size
-                    val tuple = scoreMap(k)
-
-                    // replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
-
-                    string = string + i + "," + k + "," + tuple._1 + "," + sum + "," + tuple._2 + "\n"
-                    string2 = string2 + tuple._1 + "," + sum + "\n"
-                }
-
-                pw.write(string)
-                pw.close()
-                pw2.write(string2)
-                pw2.close()
-            }
-        }
-
-    }
-
-    private def readScatterplotPerformance300AllYesFilesOneFile(): Unit = {
-        val pw = new PrintWriter(new File(path + "data.csv"))
-        var string = "Block,Score,Performance,Causes\n"
-        val pw2 = new PrintWriter(new File(path + "pearson_data.csv"))
-        var string2 = "Score,Performance\n"
-
-        var scatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
-        var scoreMapCauses: Map[String, (List[Double], Set[String])] = Map.empty[String, (List[Double], Set[String])]
-
-        for (i <- 0 to 299) {
-            println("Starting Scatterplot " + i)
-
-            for (line <- Source.fromFile(path + "scoreMaps/map_" + i + ".csv").getLines()) {
-                val lineParts = line.split(",")
-
-                val cond = lineParts(1) + "_" + lineParts(0)
-                val value = lineParts(2).toDouble
-                val causes = lineParts(3).replace(";", "|").replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
-                var set = Set.empty[String]
-
-                for (c <- causes.split(";")) {
-                    set += c
-                }
-
-                if (scoreMapCauses.contains(cond)) {
-                    var tuple = scoreMapCauses(cond)
-                    var list: List[Double] = tuple._1
-
-                    list :::= List(value)
-
-                    scoreMapCauses -= cond
-                    scoreMapCauses += (cond -> (list, tuple._2.union(set)))
-                } else {
-                    scoreMapCauses += (cond -> (List(value), set))
-                }
-            }
-
-            var map: Map[String, List[Double]] = Map.empty[String, List[Double]]
-
-            for (run <- 1 to 1) {
-                if (Files.exists(Paths.get(path + "performance_results/Run_" + run + "/" + i))) {
-
-                    for (file <- getListOfFiles(path + "performance_results/Run_" + run + "/" + i)) {
-
-                        for (line <- Source.fromFile(file).getLines()) {
-                            if (line.contains(" -> ")) {
-                                val lineParts = line.split(" -> ")
-                                val condition = lineParts(0).split("#").last
-                                val time = lineParts(1).split(" ms, ")(0).toDouble
-                                val measurements = lineParts(1).split("measurements: ").last.split(";").head.toInt
-                                var list: List[Double] = List.empty[Double]
-
-                                if (scoreMapCauses.contains(condition)) {
-                                    if (map.contains(condition)) {
-                                        list = map(condition)
-                                        map -= condition
-                                    }
-
-                                    list :::= List(time / measurements)
-                                    map += (condition -> list)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            for ((k, v) <- map) {
-                var sum: Double = 0
-
-                for (value <- v) {
-                    sum += value
-                }
-
-                sum = sum / v.size
-
-                var performanceList: List[Double] = List.empty[Double]
-
-                if (scatterMap.contains(k)) {
-                    performanceList = scatterMap(k)
-                    scatterMap -= k
-                }
-
-                performanceList :::= List(sum)
-                scatterMap += (k -> performanceList)
-            }
-        }
-
-        var counter = 0
-
-        for ((k, v) <- scatterMap) {
-            var sum: Double = 0.0
-
-            // Average
-            for (value <- v) {
-                sum += value
-            }
-
-            sum = sum / v.size
-
-            if (scoreMapCauses.contains(k)) {
-                val tuple = scoreMapCauses(k)
-
-                var scoreAverage = 0.0
-                val scoreList = tuple._1
-
-                for (value <- scoreList) {
-                    scoreAverage += value
-                }
-
-                scoreAverage = scoreAverage / scoreList.size
-
-                if (scoreAverage < 0.0000000001) {
-                    scoreAverage = 0
-                }
-
-                var setOfCauses = tuple._2
-                var causes = ""
-
-                if (setOfCauses.contains("N") && setOfCauses.size > 2) {
-                    setOfCauses -= "N"
-                }
-
-                if (scoreAverage < 200) {
-                    counter += 1
-                }
-
-                causes = setOfCauses.mkString("|")
-
-                // replace("For-Loop", "For").replace("While-Loop", "W").replace("Do-Loop", "D").replace("Function", "Func").replace("Recursion", "R").replace("None", "N")
-
-                if (!(k == "SQLITE_COVERAGE_TEST_CHOICE_VAR_11" || k == "!SQLITE_OMIT_FOREIGN_KEY_30" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_115")) {
-                    string = string + k + "," + scoreAverage + "," + sum + "," + causes + "\n"
-                    string2 = string2 + scoreAverage + "," + sum + "\n"
-                }
-            }
-        }
-
-        println(counter)
-
-        pw.write(string)
-        pw.close()
-        pw2.write(string2)
-        pw2.close()
-    }
-
-    private def calculateScatterplotForBinScore(): Unit = {
-        val pw = new PrintWriter(new File(path + "data.csv"))
-        var string = "Block,Score,Performance\n"
-        val pw2 = new PrintWriter(new File(path + "pearson_data.csv"))
-        var string2 = "Score,Performance\n"
-
-        var scatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
-        var readScores: Map[String, List[Double]] = Map.empty[String, List[Double]]
-
-        for (i <- 0 to 299) {
-            println("Starting Scatterplot " + i)
-
-            scoreMap = Map.empty[String, (Double, String)]
-
-            for (line <- Source.fromFile(path + "scoreMaps/map_" + i + ".csv").getLines()) {
-                val lineParts = line.split(",")
-
-                val cond = lineParts(1) + "_" + lineParts(0)
-                val value = lineParts(2).toDouble
-                scoreMap += (cond -> (value, ""))
-
-                if (readScores.contains(cond)) {
-                    var list = readScores(cond)
-                    list ::= value
-
-                    readScores -= cond
-                    readScores += (cond -> list)
-                } else {
-                    readScores += (cond -> List(value))
-                }
-            }
-
-            var map: Map[String, List[Double]] = Map.empty[String, List[Double]]
-
-            for (run <- 1 to 1) {
-                if (Files.exists(Paths.get(path + "performance_results/Run_" + run + "/" + i))) {
-
-                    for (file <- getListOfFiles(path + "performance_results/Run_" + run + "/" + i)) {
-
-                        for (line <- Source.fromFile(file).getLines()) {
-                            if (line.contains(" -> ")) {
-                                val lineParts = line.split(" -> ")
-                                val condition = lineParts(0).split("#").last
-                                val time = lineParts(1).split(" ms, ")(0).toDouble
-                                val measurements = lineParts(1).split("measurements: ").last.split(";").head.toInt
-                                var list: List[Double] = List.empty[Double]
-
-                                if (scoreMap.contains(condition)) {
-                                    if (map.contains(condition)) {
-                                        list = map(condition)
-                                        map -= condition
-                                    }
-
-                                    list :::= List(time / measurements)
-                                    map += (condition -> list)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            for ((k, v) <- map) {
-                var sum: Double = 0
-
-                for (value <- v) {
-                    sum += value
-                }
-
-                sum = sum / v.size
-
-                var performanceList: List[Double] = List.empty[Double]
-
-                if (scatterMap.contains(k)) {
-                    performanceList = scatterMap(k)
-                    scatterMap -= k
-                }
-
-                performanceList :::= List(sum)
-                scatterMap += (k -> performanceList)
-            }
-        }
-
-        for ((k, v) <- scatterMap) {
-            var sum: Double = 0.0
-
-            // Average
-            for (value <- v) {
-                sum += value
-            }
-
-            sum = sum / v.size
-
-            var scoreAverage = 0.0
-            val scoreList = readScores(k)
-
-            for (value <- scoreList) {
-                scoreAverage += value
-            }
-
-            scoreAverage = scoreAverage / scoreList.size
-
-            if (!(k == "SQLITE_COVERAGE_TEST_CHOICE_VAR_11" || k == "!SQLITE_OMIT_FOREIGN_KEY_30" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_115")) {
-                string = string + k + "," + Math.round(scoreAverage) + "," + sum + "\n"
-                string2 = string2 + Math.round(scoreAverage) + "," + sum + "\n"
-            }
-        }
-
-        pw.write(string)
-        pw.close()
-        pw2.write(string2)
-        pw2.close()
-    }
-
-    private def calculateAverageForPerfFilter(): Unit = {
-        val pw = new PrintWriter(new File(path + "data.csv"))
-        var string = "Block,Performance\n"
-
-        var scatterMap: Map[String, List[Double]] = Map.empty[String, List[Double]]
-
-        for (i <- 0 to 299) {
-            println("Starting Scatterplot " + i)
-
-            var map: Map[String, List[Double]] = Map.empty[String, List[Double]]
-
-            for (run <- 1 to 1) {
-                if (Files.exists(Paths.get(path + "performanceFilterData/Run_" + run + "/" + i))) {
-
-                    for (file <- getListOfFiles(path + "performanceFilterData/Run_" + run + "/" + i)) {
-
-                        for (line <- Source.fromFile(file).getLines()) {
-                            if (line.contains(" -> ")) {
-                                val lineParts = line.split(" -> ")
-                                val condition = lineParts(0).split("#").last
-                                val time = lineParts(1).split(" ms, ")(0).toDouble
-                                val measurements = lineParts(1).split("measurements: ").last.split(";").head.toInt
-                                var list: List[Double] = List.empty[Double]
-
-                                if (map.contains(condition)) {
-                                    list = map(condition)
-                                    map -= condition
-                                }
-
-                                list :::= List(time / measurements)
-                                map += (condition -> list)
-                            }
-                        }
-                    }
-                }
-            }
-
-            for ((k, v) <- map) {
-                var sum: Double = 0
-
-                for (value <- v) {
-                    sum += value
-                }
-
-                sum = sum / v.size
-
-                var performanceList: List[Double] = List.empty[Double]
-
-                if (scatterMap.contains(k)) {
-                    performanceList = scatterMap(k)
-                    scatterMap -= k
-                }
-
-                performanceList :::= List(sum)
-                scatterMap += (k -> performanceList)
-            }
-        }
-
-        for ((k, v) <- scatterMap) {
-            var sum: Double = 0.0
-
-            // Average
-            for (value <- v) {
-                sum += value
-            }
-
-            sum = sum / v.size
-
-            string = string + k + "," + sum + "\n"
-        }
-
-        pw.write(string)
-        pw.close()
-    }
-
-    def getListOfFiles(dir: String):List[File] = {
-        val d = new File(dir)
-        if (d.exists && d.isDirectory) {
-            d.listFiles.filter(_.isFile).toList
-        } else {
-            List[File]()
-        }
-    }
-
-    /*private def readScatterplotPerformanceAllFiles(): Unit = {
-        for (file <- getListOfFiles("/home/christian/Zuweisung-Scores-Laufzeit/performance_results/0/")) {
-            var map: Map[String, List[Double]] = Map.empty[String, List[Double]]
-
-            for (line <- Source.fromFile(file).getLines()) {
-                if (line.contains(" -> ")) {
-                    val lineParts = line.split(" -> ")
-                    val condition = lineParts(0).split("#").last
-                    val time = lineParts(1).split(" ms, ")(0).toDouble
-
-                    var list: List[Double] = List.empty[Double]
-
-                    if (scoreMap.contains(condition)) {
-                        if (map.contains(condition)) {
-                            list = map(condition)
-                            map -= condition
-                        }
-
-                        list :::= List(time)
-                        map += (condition -> list)
-                    }
-                }
-            }
-
-            for ((k, v) <- map) {
-                var max: Double = 0
-
-                for (value <- v) {
-                    if (max < value) {
-                        max = value
-                    }
-                }
-
-                var performanceList: List[Double] = List.empty[Double]
-
-                if (performanceScatterMap.contains(k)) {
-                    performanceList = performanceScatterMap(k)
-                    performanceScatterMap -= k
-                }
-
-                performanceList :::= List(max)
-                performanceScatterMap += (k -> performanceList)
-            }
-        }
-    }
-
-    private def readEDFPerformanceAllYesFiles(): Unit = {
-        var map: Map[String, (Double, Double)] = Map.empty[String, (Double, Double)]
-        var finalTimes: Map[String, Double] = Map.empty[String, Double]
-
-        for (line <- Source.fromFile("/home/christian/Zuweisung-Scores-Laufzeit/performance_results/0/perf_ay.txt").getLines()) {
-            if (line.contains(" -> ")) {
-                val lineParts = line.split(" -> ")
-                val innerTime = lineParts(1).split(" ms, ")(0).toDouble
-                val outerTime = lineParts(1).split(" ms, ")(0).split(" ms")(0).toDouble
-
-                map += (lineParts(0) -> (innerTime, outerTime))
-            }
-
-            if (line.startsWith("Total time: ")) {
-                val lineParts = line.split(" ms ")
-                totalTime = lineParts(0).replaceFirst("Total time: ", "").toDouble
-                overheadTime = lineParts(1).replace("(overhead: ", "").replace(")", "").toDouble
-            }
-        }
-
-        for ((k1, v1Tuple) <- map) {
-            var currentTime: Double = v1Tuple._1
-
-            for((k2, v2Tuple) <- map) {
-                if (k1 != k2 && isSuccessor(k1, k2)) {
-                    currentTime -= v2Tuple._1
-                    currentTime -= v2Tuple._2
-                }
-            }
-
-            finalTimes += (k1 -> currentTime)
-        }
-
-        for ((k, v) <- finalTimes) {
-            var condition = k.split("#").last
-
-            var value = v
-
-            if (performanceECDFMap.contains(condition)) {
-                value += performanceECDFMap(condition)
-                performanceECDFMap -= condition
-            }
-
-            performanceECDFMap += (condition -> value)
-        }
-    }*/
-
-    var totalTime: Double = 0.0
-    var overheadTime: Double = 0.0
-
-    private def readAndWriteEDFPerformanceAllFiles(): Unit = {
-        var counter = 0
-
-        for (i <- 0 to 299) {
-            val pw = new PrintWriter(new File(path + "ecdf_files/edcf_" + i + ".csv"))
-            var string = ""
-
-            println("Starting ECDF " + i)
-            var map: Map[String, (Double, Double)] = Map.empty[String, (Double, Double)]
-            var finalTimes: Map[String, Double] = Map.empty[String, Double]
-
-            scoreMap = Map.empty[String, (Double, String)]
-
-            for (line <- Source.fromFile(path + "scoreMaps/map_" + i + ".csv").getLines()) {
-                val lineParts = line.split(",")
-
-                val cond = lineParts(1) + "_" + lineParts(0)
-                val value = lineParts(2).toDouble
-                scoreMap += (cond -> (value, ""))
-            }
-
-            for (file <- getListOfFiles(path + "performance_results/Run_1/" + i + "/")) {
-                println("Reading file" + file)
-                for (line <- Source.fromFile(file).getLines()) {
-                    if (line.contains(" -> ")) {
-                        val lineParts = line.split(" -> ")
-                        val innerTime = lineParts(1).split(" ms, ")(0).toDouble
-                        val outerTime = lineParts(1).split(" ms, ")(1).split(" ms")(0).toDouble
-
-                        map += (lineParts(0) -> (innerTime, outerTime))
-                    }
-
-                    if (line.startsWith("Total time: ")) {
-                        val lineParts = line.split(" ms ")
-                        totalTime = lineParts(0).replaceFirst("Total time: ", "").toDouble
-                        overheadTime = lineParts(1).replace("(overhead: ", "").replace(")", "").toDouble
-                    }
-                }
-
-                for ((k1, v1Tuple) <- map) {
-                    var currentTime: Double = v1Tuple._1
-
-                    for ((k2, v2Tuple) <- map) {
-                        if (k1 != k2 && isSuccessor(k1, k2)) {
-                            currentTime -= v2Tuple._1
-                            currentTime -= v2Tuple._2
-                        }
-                    }
-
-                    finalTimes += (k1 -> currentTime)
-                }
-
-                for ((k, v) <- finalTimes) {
-                    var condition = k.split("#").last
-
-                    var value = v
-
-                    if (performanceECDFMap.contains(condition)) {
-                        value += performanceECDFMap(condition)
-                        performanceECDFMap -= condition
-                    }
-
-                    performanceECDFMap += (condition -> value)
-                }
-
-                for ((k, v) <- performanceECDFMap) {
-                    if (scoreMap.contains(k)) {
-                        var score: Double = scoreMap(k)._1
-
-                        if (score < 0.0000000001) {
-                            score = 0
-                        }
-
-                        if (!(k == "SQLITE_COVERAGE_TEST_CHOICE_VAR_11" || k == "!SQLITE_OMIT_FOREIGN_KEY_30" || k == "!SQLITE_OMIT_FOREIGN_KEY_31" || k == "!SQLITE_NO_SYNC_1" || k == "COND_VAR_115")) {
-                            string = string + counter + "," + score + "," + v / totalTime + "\n"
-                        }
-                    }
-                }
-
-                counter += 1
-            }
-
-            pw.write(string)
-            pw.close()
-        }
-    }
-
-    private def checkTimes(): Unit = {
-
-        for (i <- 0 to 1) {
-
-            println("Starting ECDF " + i)
-            for (file <- getListOfFiles(path + "mean_results/" + i + "/")) {
-                var map: Map[String, (Double, Double)] = Map.empty[String, (Double, Double)]
-                var finalTimes: Map[String, Double] = Map.empty[String, Double]
-
-                println("Reading file" + file)
-                for (line <- Source.fromFile(file).getLines()) {
-                    if (line.contains(" -> ")) {
-                        val lineParts = line.split(" -> ")
-                        val innerTime = lineParts(1).split(" ms, ")(0).toDouble
-                        val outerTime = lineParts(1).split(" ms, ")(1).split(" ms")(0).toDouble
-
-                        map += (lineParts(0) -> (innerTime, outerTime))
-                    }
-
-                    if (line.startsWith("Total time: ")) {
-                        val lineParts = line.split(" ms ")
-                        totalTime = lineParts(0).replaceFirst("Total time: ", "").toDouble
-                        overheadTime = lineParts(1).replace("(overhead: ", "").replace(")", "").toDouble
-                    }
-                }
-
-                for ((k1, v1Tuple) <- map) {
-                    var currentTime: Double = v1Tuple._1
-
-                    for ((k2, v2Tuple) <- map) {
-                        if (k1 != k2 && isSuccessor(k1, k2)) {
-                            currentTime -= v2Tuple._1
-                            currentTime -= v2Tuple._2
-                        }
-                    }
-
-                    finalTimes += (k1 -> currentTime)
-                }
-
-                var sumTime = 0.0
-
-                for ((k, v) <- finalTimes) {
-                    sumTime += v
-                }
-
-                var test = ""
-
-                test = test.split("#")(0)
-
-                if (sumTime != totalTime) {
-                    println("Something's wrong in " + i)
-                    println("Total time: " + totalTime)
-                    println("Summed time: " + sumTime)
-                } else {
-                    println("OK")
-                }
-            }
-        }
-    }
-
-    private val BASE_NAME: String = "BASE"
-
-    private def getNumberOfDividers(string: String): Int = {
-        string.split("#").length-1
-    }
-
-    private def isSuccessor(shortString: String, possibleSuccessorString: String): Boolean = {
-        (shortString.equals(BASE_NAME) && getNumberOfDividers(possibleSuccessorString) == 0) || (possibleSuccessorString.startsWith(shortString + "#") && getNumberOfDividers(possibleSuccessorString) == getNumberOfDividers(shortString) + 1)
-    }
-
-    private def writeDataFile(): Unit = {
-        val pw = new PrintWriter(new File(dir + "data.csv"))
-
-        var map: Map[Int, Int] = Map.empty[Int, Int]
-        var string = ""
-
-        for ((k, v) <- blockScores) {
-            val divide = (v/BUCKET_SIZE).floor.toInt
-
-            if (map.contains(divide)) {
-                val counter = map(divide)
-                map -= divide
-                map += (divide -> (counter+1))
-            } else {
-                map += (divide -> 1)
-            }
-        }
-
-        for ((k, v) <- map) {
-            string = string + k.toString + "," + v.toString + "\n"
-        }
-
-        pw.write(string)
-        pw.close()
-    }
-
-    private def writeMapFile(): Unit = {
-        val pw = new PrintWriter(new File(dir + "map.csv"))
-
-        var string = ""
-
-        for ((k, v) <- blockScores) {
-            val id = k.split("_").last
-            var causesString = ""
-            val causes = collection.immutable.SortedSet(scoreCauses(k).toList: _*)
-
-            if (causes.isEmpty) {
-                causesString = "None"
-            } else {
-                causesString = causes.mkString(";")
-            }
-
-            string = string + id + "," + k.substring(0, k.length-id.length-1) + "," + v.toString + "," + causesString + "\n"
-        }
-
-        pw.write(string)
-        pw.close()
-    }
-
-    private def writeOperatorFile(): Unit = {
-        val pw = new PrintWriter(new File(dir + "operators.csv"))
-
-        var string = ""
-
-        string += "Addition," + additionGeneralCounter + "," + additionBlockCounter + "\n"
-        string += "Subtraction," + subtractionGeneralCounter + "," + subtractionBlockCounter + "\n"
-        string += "Multiplication," + multiplicationGeneralCounter + "," + multiplicationBlockCounter + "\n"
-        string += "Division," + divisionGeneralCounter + "," + divisionBlockCounter + "\n"
-
-        pw.write(string)
-        pw.close()
-    }
-
-    private def codeAnalysis(obj: Any, currentBlock: FeatureExpr = FeatureExprFactory.True): Unit = {
-        obj match {
-            case "+" | "++" | "+=" | "=+" =>
-                additionGeneralCounter += + 1
-
-                if (currentBlock != FeatureExprFactory.True) {
-                    additionBlockCounter += 1
-                }
-            case "-" | "--" | "-=" | "=-" =>
-                subtractionGeneralCounter += 1
-
-                if (currentBlock != FeatureExprFactory.True) {
-                    subtractionBlockCounter += 1
-                }
-            case "*" | "*=" | "=*" =>
-                multiplicationGeneralCounter += 1
-
-                if (currentBlock != FeatureExprFactory.True) {
-                    multiplicationBlockCounter += 1
-                }
-            case "/" | "/=" | "=/" =>
-                divisionGeneralCounter += 1
-
-                if (currentBlock != FeatureExprFactory.True) {
-                    divisionBlockCounter += 1
-                }
-            case x: AST =>
-                if (x.productArity > 0) {
-                    for (y <- x.productIterator.toList) {
-                        codeAnalysis(y, currentBlock)
-                    }
-                }
-            case x: Opt[_] =>
-                codeAnalysis(x.entry, x.condition)
-            case One(x) =>
-                codeAnalysis(x, currentBlock)
-            case x: Choice[_] =>
-                codeAnalysis(x.thenBranch, x.condition)
-                codeAnalysis(x.elseBranch, x.condition.not())
-            case x: List[_] =>
-                for (elem <- x) {
-                    codeAnalysis(elem, currentBlock)
-                }
-            case Some(x) =>
-                codeAnalysis(x, currentBlock)
-            case None =>
-            case _ =>
-        }
     }
 
     // Global for current status of loops for loop score calculation and granularity
@@ -2223,7 +1333,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
 
                 call.weight * sum
             } else {
-                //if (call.condition.and(cond).isSatisfiable(featureModel)) {
                 var sum: Double = functionScores(call.functionName)
 
                 callCauses += "Function"
@@ -2245,9 +1354,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
                 }
 
                 call.weight * sum
-                //} else {
-                //    0
-                //}
             }
         }
 
@@ -2395,59 +1501,20 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             if (block._1 != null && blockToStatements.contains(block._1) && block._2 < threshold) {
                 val statements = blockToStatements(block._1)
 
-                if (!(block._1 == "SQLITE_COVERAGE_TEST_CHOICE_VAR_11" || block._1 == "!SQLITE_OMIT_FOREIGN_KEY_30" || block._1 == "!SQLITE_OMIT_FOREIGN_KEY_31" || block._1 == "!SQLITE_NO_SYNC_1" || block._1 == "COND_VAR_115")) {
-                    statements.keySet().toArray.foreach({
-                        case i@IfStatement(_, One(CompoundStatement(list)), _, _) =>
-                            ignoredStatements.put(i, block._2 < threshold)
+                statements.keySet().toArray.foreach({
+                    case i@IfStatement(_, One(CompoundStatement(list)), _, _) =>
+                        ignoredStatements.put(i, block._2 < threshold)
 
-                            if (list.size == 1) {
-                                ignoredStatements.put(list.head.entry, block._2 < threshold)
-                            }
-                        case s: Statement =>
-                            ignoredStatements.put(s, block._2 < threshold)
-                    })
-                }
+                        if (list.size == 1) {
+                            ignoredStatements.put(list.head.entry, block._2 < threshold)
+                        }
+                    case s: Statement =>
+                        ignoredStatements.put(s, block._2 < threshold)
+                })
             }
         })
 
-        writeMapFile()
-
         ignoredStatements
-    }
-
-    private def writeMapFile(): Unit = {
-        val pw = new PrintWriter(new File(dir + "map.csv"))
-        var string = ""
-
-        for ((k, v) <- binScoreBlocks) {
-            var ifBin = 0
-            var switchBin = 0
-            var loopsBin = 0
-            var callBin = 0
-            var flowBin = 0
-
-            if (ifBinBlocks.contains(k)) {
-                ifBin = ifBinBlocks(k)
-            }
-            if (switchBinBlocks.contains(k)) {
-                switchBin = switchBinBlocks(k)
-            }
-            if (loopsBinBlocks.contains(k)) {
-                loopsBin = loopsBinBlocks(k)
-            }
-            if (callBinBlocks.contains(k)) {
-                callBin = callBinBlocks(k)
-            }
-            if (flowBinBlocks.contains(k)) {
-                flowBin = flowBinBlocks(k)
-            }
-
-            val id = k.split("_").last
-            string = string + id + "," + k.substring(0, k.length-id.length-1) + "," + v.toString + "," + ifBin.toString + "," + switchBin.toString + "," + loopsBin.toString + "," + callBin.toString + "," + flowBin.toString + "\n"
-        }
-
-        pw.write(string)
-        pw.close()
     }
 
     private def granularity(obj: Any, currentBlock: String = null, currentFunction: String = null): Unit = {
@@ -2832,11 +1899,6 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
 
 
             var score = 11 - Math.pow(1.25, amountBranches)
-            //var score = -1 + Math.pow(1.1, amountBranches)
-
-            //if (score > 10) {
-            //    score = 10.0
-            //}
 
             if (score < 1) {
                 score = 1.0
@@ -2872,11 +1934,6 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             }
 
             var score = 11 - Math.pow(1.25, amountBranches)
-            //var score = -1 + Math.pow(1.1, amountBranches)
-
-            //if (score > 10) {
-            //    score = 10.0
-            //}
 
             if (score < 1) {
                 score = 1.0
@@ -2906,11 +1963,6 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             }
 
             var score = 11 - Math.pow(1.25, amountCases)
-            //var score = -1 + Math.pow(1.1, amountCases)
-
-            //if (score > 10) {
-            //    score = 10.0
-            //}
 
             if (score < 1) {
                 score = 1.0
@@ -2938,11 +1990,6 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             }
 
             var score = 11 - Math.pow(1.25, amountCases)
-            //var score = -1 + Math.pow(1.1, amountCases)
-
-            //if (score > 10) {
-            //    score = 10.0
-            //}
 
             if (score < 1) {
                 score = 1.0
@@ -2967,7 +2014,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            score = -1 + Math.pow(1.2, score)
+            score = Math.pow(1.2, score)
 
             if (score > 10) {
                 score = 10.0
@@ -2990,7 +2037,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            score = -1 + Math.pow(1.25, score)
+            score = Math.pow(1.25, score)
 
             if (score > 10) {
                 score = 10.0
@@ -3086,7 +2133,7 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
                 }
             }
 
-            callScore = -1 + Math.pow(1.5, callScore)
+            callScore = Math.pow(1.5, callScore)
 
             if (callScore > 10) {
                 callScore = 10
