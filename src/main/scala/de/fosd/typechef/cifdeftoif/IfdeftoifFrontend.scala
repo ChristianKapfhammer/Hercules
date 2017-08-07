@@ -190,7 +190,9 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                                 val lastSepIndex = opt.getOutputStem().lastIndexOf(System.getProperty("file.separator"))
 
                                 i.setIgnoredStatements(granularity.calculateGranularity(ast, fullFM, opt.getOutputStem().substring(0, lastSepIndex+1), opt.getGToption))
-                                i.setStatementMapping(granularity.getStatementMapping())
+                                if (opt.blockNaming) {
+                                    i.setStatementMapping(granularity.getStatementMapping())
+                                }
                             } else if (opt.performance && opt.granularBinScore) {
                                 println("calculation for granularity with bin scores started")
 
@@ -198,7 +200,9 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                                 val lastSepIndex = opt.getOutputStem().lastIndexOf(System.getProperty("file.separator"))
 
                                 i.setIgnoredStatements(granularity.calculateGranularity(ast, fullFM, opt.getOutputStem().substring(0, lastSepIndex+1), opt.getGToption))
-                                i.setStatementMapping(granularity.getStatementMapping())
+                                if (opt.blockNaming) {
+                                    i.setStatementMapping(granularity.getStatementMapping())
+                                }
                             } else if (opt.performance && opt.granularPerfFilter) {
                                 println("calculation for granularity with performance filtering started")
 
@@ -206,7 +210,9 @@ object IfdeftoifFrontend extends App with Logging with EnforceTreeHelper {
                                 val lastSepIndex = opt.getOutputStem().lastIndexOf(System.getProperty("file.separator"))
 
                                 i.setIgnoredStatements(granularity.calculateGranularity(ast, fullFM, opt.getOutputStem().substring(0, lastSepIndex+1), opt.getGToption))
-                                i.setStatementMapping(granularity.getStatementMapping())
+                                if (opt.blockNaming) {
+                                    i.setStatementMapping(granularity.getStatementMapping())
+                                }
                             }
 
                             stopWatch.start("ifdeftoif")

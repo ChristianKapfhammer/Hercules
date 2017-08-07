@@ -12,6 +12,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
     private final val F_IFDEFTOIFNOCHECK: Char = Options.genOptionId
     private final val F_BLOCKCOVERAGE: Char = Options.genOptionId()
     private final val F_BLOCKCOVERAGETEST: Char = Options.genOptionId()
+    private final val F_BLOCKNAMING: Char = Options.genOptionId()
     private final val F_GRANULAREXECCODE: Char = Options.genOptionId()
     private final val F_GRANULARBINSCORE: Char = Options.genOptionId()
     private final val F_GRANULARPERFFILTER: Char = Options.genOptionId()
@@ -27,6 +28,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
     var ifdeftoifnocheck: Boolean = false
     var blockCoverage: Boolean = false
     var blockCoverageTest: Boolean = false
+    var blockNaming: Boolean = false
     var granularExecCode: Boolean = false
     var granularBinScore: Boolean = false
     var granularPerfFilter: Boolean = false
@@ -70,6 +72,8 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
                     "Calculate all configurations for block coverage."),
                 new Options.Option("blockcoveragetest", LongOpt.REQUIRED_ARGUMENT, F_BLOCKCOVERAGETEST, "file",
                     "Calculate all configurations for block coverage."),
+                new Options.Option("blocknaming", LongOpt.NO_ARGUMENT, F_BLOCKNAMING, null,
+                    "Replace names in measurement functions with their corresponding block name."),
                 new Options.Option("granularexeccode", LongOpt.REQUIRED_ARGUMENT, F_GRANULAREXECCODE, "threshold",
                     "Calculates the lines of code of each code block."),
                 new Options.Option("granularbinscore", LongOpt.REQUIRED_ARGUMENT, F_GRANULARBINSCORE, "threshold",
@@ -134,6 +138,8 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
             ifdeftoif = true
             ifdeftoifnocheck = true
             blockCoverageTest = true
+        } else if (c == F_PERFORMANCE) {
+            blockNaming = true
         } else if (c == F_GRANULAREXECCODE) {
             try {
                 gt = g.getOptarg.toDouble
