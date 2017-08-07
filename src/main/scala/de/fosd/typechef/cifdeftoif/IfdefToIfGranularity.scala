@@ -679,7 +679,7 @@ trait IfdefToIfGranularityInterface {
     }
 
     /**
-      *
+      * Calculates the functions that are called in other functions.
       */
     private def calculateFunctionsCalledBy(): Unit = {
         for ((func, calls) <- globalFunctionCalls) {
@@ -764,15 +764,6 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
     private var blockScores: Map[String, Double] = Map.empty[String, Double]
     private var scoreCauses: Map[String, Set[String]] = Map.empty[String, Set[String]]
 
-    private var additionGeneralCounter: Int = 0
-    private var subtractionGeneralCounter: Int = 0
-    private var multiplicationGeneralCounter: Int = 0
-    private var divisionGeneralCounter: Int = 0
-    private var additionBlockCounter: Int = 0
-    private var subtractionBlockCounter: Int = 0
-    private var multiplicationBlockCounter: Int = 0
-    private var divisionBlockCounter: Int = 0
-
     override def calculateGranularity(ast: TranslationUnit, fm: FeatureModel, outputDir: String, threshold: Double = 2.0): IdentityHashMap[Any, Boolean] = {
         val ignoredStatements: IdentityHashMap[Any, Boolean] = new IdentityHashMap[Any, Boolean]
 
@@ -815,7 +806,32 @@ trait IfdefToIfGranularityExecCode extends IfdefToIfGranularityInterface with IO
             }
         })
 
+        writeMapFile()
+
         ignoredStatements
+    }
+
+    private def writeMapFile(): Unit = {
+        val pw = new PrintWriter(new File(dir + "map.csv"))
+
+        var string = ""
+
+        for ((k, v) <- blockScores) {
+            val id = k.split("_").last
+            var causesString = ""
+            val causes = collection.immutable.SortedSet(scoreCauses(k).toList: _*)
+
+            if (causes.isEmpty) {
+                causesString = "None"
+            } else {
+                causesString = causes.mkString(";")
+            }
+
+            string = string + id + "," + k.substring(0, k.length - id.length - 1) + "," + v.toString + "," + causesString + "\n"
+        }
+
+        pw.write(string)
+        pw.close()
     }
 
     // Global for current status of loops for loop score calculation and granularity
@@ -1514,7 +1530,44 @@ trait IfdefToIfGranularityBinScore extends IfdefToIfGranularityInterface with IO
             }
         })
 
+        writeMapFile()
+
         ignoredStatements
+    }
+
+    private def writeMapFile(): Unit = {
+        val pw = new PrintWriter(new File(dir + "map.csv"))
+        var string = ""
+
+        for ((k, v) <- binScoreBlocks) {
+            var ifBin = 0
+            var switchBin = 0
+            var loopsBin = 0
+            var callBin = 0
+            var flowBin = 0
+
+            if (ifBinBlocks.contains(k)) {
+                ifBin = ifBinBlocks(k)
+            }
+            if (switchBinBlocks.contains(k)) {
+                switchBin = switchBinBlocks(k)
+            }
+            if (loopsBinBlocks.contains(k)) {
+                loopsBin = loopsBinBlocks(k)
+            }
+            if (callBinBlocks.contains(k)) {
+                callBin = callBinBlocks(k)
+            }
+            if (flowBinBlocks.contains(k)) {
+                flowBin = flowBinBlocks(k)
+            }
+
+            val id = k.split("_").last
+            string = string + id + "," + k.substring(0, k.length - id.length - 1) + "," + v.toString + "," + ifBin.toString + "," + switchBin.toString + "," + loopsBin.toString + "," + callBin.toString + "," + flowBin.toString + "\n"
+        }
+
+        pw.write(string)
+        pw.close()
     }
 
     private def granularity(obj: Any, currentBlock: String = null, currentFunction: String = null): Unit = {
