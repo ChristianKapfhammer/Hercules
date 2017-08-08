@@ -138,7 +138,7 @@ class IfdefToIfOptions extends FrontendOptionsWithConfigFiles {
             ifdeftoif = true
             ifdeftoifnocheck = true
             blockCoverageTest = true
-        } else if (c == F_PERFORMANCE) {
+        } else if (c == F_BLOCKNAMING) {
             blockNaming = true
         } else if (c == F_GRANULAREXECCODE) {
             try {
