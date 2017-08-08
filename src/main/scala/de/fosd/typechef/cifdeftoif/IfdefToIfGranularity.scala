@@ -14,8 +14,6 @@ trait IfdefToIfGranularityInterface {
 
     class FuncCall(var functionName: String, var block: String, var condition: FeatureExpr, var weight: Double) {}
 
-    protected var BUCKET_SIZE: Int = 5
-
     protected var IF_WEIGHT: Double = 1.0
     protected var SWITCH_WEIGHT: Double = 1.0
     protected var LOOP_WEIGHT: Double = 1.0
@@ -87,8 +85,6 @@ trait IfdefToIfGranularityInterface {
                             DEFAULT_FUNCTION_WEIGHT = configParts(1).toDouble
                         case "function_call_weight" =>
                             FUNCTION_CALL_WEIGHT = configParts(1).toDouble
-                        case "bucket_size" =>
-                            BUCKET_SIZE = configParts(1).toInt
                         case _ =>
                     }
                 }
